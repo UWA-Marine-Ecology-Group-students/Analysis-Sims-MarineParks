@@ -1,0 +1,11 @@
+"","modname","AICc","BIC","r2.vals","r2.vals.unique","edf","edf.less.1","delta.AICc","delta.BIC","wi.AICc","wi.BIC","mean.relief","sd.relief","distance.to.ramp","aspect","depth","broad.reef","status","planned.or.exploratory","cumsum.wi"
+"aspect.by.status+depth.by.status+mean.relief.te.sd.relief+status","aspect.by.status+depth.by.status+mean.relief.te.sd.relief+status",2636.27135688169,2690.47997493453,0.00834,NA,42.87,3,0,0,1,0.999,1,1,0,1,1,0,1,0,1
+"aspect.te.depth+mean.relief.te.distance.to.ramp+sd.relief","aspect.te.depth+mean.relief.te.distance.to.ramp+sd.relief",2652.56016804095,2703.97968140906,0.11089,NA,53,0,16.289,13.5,0,0.001,1,1,1,1,1,0,0,0,1
+"aspect.te.depth+mean.relief.te.broad.reef+sd.relief","aspect.te.depth+mean.relief.te.broad.reef+sd.relief",2680.59310073671,2732.01261410482,0.72746,NA,54.24,13,44.322,41.533,0,0,1,1,0,1,1,1,0,0,1
+"aspect+mean.relief.te.broad.reef+sd.relief.te.depth","aspect+mean.relief.te.broad.reef+sd.relief.te.depth",2687.02601308562,2738.44552645373,0.70086,NA,54.25,15,50.755,47.966,0,0,1,1,0,1,1,1,0,0,1
+"aspect+mean.relief.te.distance.to.ramp+sd.relief.te.depth","aspect+mean.relief.te.distance.to.ramp+sd.relief.te.depth",2692.30618279088,2743.72569615898,0.15871,NA,53,3,56.035,53.246,0,0,1,1,1,1,1,0,0,0,1
+"depth+mean.relief.te.aspect+sd.relief.te.distance.to.ramp","depth+mean.relief.te.aspect+sd.relief.te.distance.to.ramp",2694.2348914615,2745.65440482961,0.00383,NA,53,0,57.964,55.174,0,0,1,1,1,1,1,0,0,0,1
+"distance.to.ramp.te.depth+mean.relief.te.sd.relief","distance.to.ramp.te.depth+mean.relief.te.sd.relief",2701.11960033805,2746.87553210608,0.00682,NA,49.14,4,64.848,56.396,0,0,1,1,1,0,1,0,0,0,1
+"aspect+distance.to.ramp.te.depth+mean.relief.te.sd.relief","aspect+distance.to.ramp.te.depth+mean.relief.te.sd.relief",2704.64444306196,2756.06395643007,0.00621,NA,53.14,6,68.373,65.584,0,0,1,1,1,1,1,0,0,0,1
+"aspect.te.depth+mean.relief.te.distance.to.ramp","aspect.te.depth+mean.relief.te.distance.to.ramp",2705.86650283019,2751.62243459822,0.12463,NA,49,0,69.595,61.142,0,0,1,0,1,1,1,0,0,0,1
+"mean.relief.te.distance.to.ramp+sd.relief.te.depth","mean.relief.te.distance.to.ramp+sd.relief.te.depth",2705.96141503023,2751.71734679826,0.13815,NA,49,2,69.69,61.237,0,0,1,1,1,0,1,0,0,0,1
