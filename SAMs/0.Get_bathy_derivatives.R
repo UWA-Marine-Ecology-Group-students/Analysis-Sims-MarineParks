@@ -9,6 +9,9 @@ library(raster)
 library(rgdal)
 library(spastat)
 
+# clear workspace ----
+rm(list = ls())
+
 # set working directories ----
 w.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
 #w.dir <- "H:/Github/GB_2015_Survey"
@@ -20,39 +23,34 @@ s.dir <- (paste(w.dir, "shapefiles", sep='/'))
 p.dir <- paste(w.dir, "Plots", sep='/')
 r.dir <- paste(w.dir, "rasters", sep='/')
 
-# Load data ----
-study <- "2020_south-west_stereo-BRUVs"
 
-df <- read.csv(paste(dt.dir, paste(study, "checked.metadata.csv", sep='.'), sep = '/'))%>%
-  mutate_at(vars(campaignid, sample, status, site, dataset), list(as.factor)) %>% # make these columns as factors
-  glimpse()
+# Load Multibeam ----
+b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
+plot(b)
 
-head(df)
-str(df)
+# crop to extent --
+#e <- drawExtent()
+e <- extent(288664.7 , 311265.2 , 6220416 , 6234275 )
+b <- crop(b, e)
+plot(b)
+b # 4x4m resolution
 
-dfs <- df
-coordinates(dfs) <- ~longitude+latitude 
+# Calculate bathy derivatives ----
+s <- terrain(b, 'slope')
+plot(s)
+a <- terrain(b, 'aspect')
+plot(a)
+r <- terrain(b, 'roughness')
+plot(r)
+t <- terrain(b, 'TPI')
+plot(t)
+f <- terrain(b, 'flowdir')
+plot(f)
 
-# Get bathy derivatives ----
-s <- raster(paste(r.dir, "SW_slope-to-260m.tif", sep='/'))
-a <- raster(paste(r.dir, "SW_aspect-to-260m.tif", sep='/'))
-r <- raster(paste(r.dir, "SW_roughness-to-260m.tif", sep='/'))
-t <- raster(paste(r.dir, "SW_tpi-to-260m.tif", sep='/'))
-
-d <- stack(s,a,r,t)
-plot(d)
-names(d) <- c("slope", "aspect", "roughness", "tpi")
+ders <- stack(b,s,a,r,t,f)
+names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  ,   "tpi" ,   "flowdir")
 
 
-# Extract bathy derivatives from data points --
-dfs <- raster::extract(d, dfs, sp = T)
-dfs <- as.data.frame(dfs)
-str(dfs) # this is the same df initially loaded with added columns for eachderivative
 
-# Save dfs --
-bathy <- dfs %>%
-  dplyr::select(campaignid,sample,slope,aspect,roughness,tpi)
-
-setwd(dt.dir)
-
-write.csv(bathy,paste(study,"bathymetry.derivatives.csv",sep="."),row.names = F)
+# save stack of derivatives
+writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
