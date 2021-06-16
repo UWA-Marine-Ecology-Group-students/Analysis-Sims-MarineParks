@@ -35,6 +35,17 @@ b <- crop(b, e)
 plot(b)
 b # 4x4m resolution
 
+#### Transform from utm to lat long ----
+
+# open reference file 
+ref <- raster(paste(r.dir, "GB-SW_250mBathy.tif", sep='/'))
+ref.crs <- proj4string(ref)
+
+b <- projectRaster(b, crs = ref.crs)
+plot(b)
+proj4string(b) # check it worked
+
+
 # Calculate bathy derivatives ----
 s <- terrain(b, 'slope')
 plot(s)
