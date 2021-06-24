@@ -113,14 +113,31 @@ dim(df2) # 21762 rows
 df2 <- df2[!is.na(df2$SSTmean_SSTARRS),] # remove rows with NAs
 any(is.na(df2$SSTmean_SSTARRS)) # check again
 d2 <- droplevels(df2)
-length(levels(df2$sample)) #  278
-dim(df2) # 21138 rows 
+length(levels(df2$sample)) #  278 #Hayley got 294
+dim(df2) # 21138 rows #Hayley got 22515   36
+
+any(is.na(df2$slope))
+which(is.na(df2$slope))
+length(which(is.na(df$slope)))
+dim(df2)
+
+df2 <- df2[!is.na(df2$slope),] # remove rows with NAs
+any(is.na(df2$slope)) # check again
+d2 <- droplevels(df2)
+length(levels(df2$sample)) 
+dim(df2) 
+
 
 head(df2)
 summary(df2)
 
 temp <- df2 %>% group_by(sample) %>% summarize(mean(SSTmean_SSTARRS))
 any(is.na(temp)) # no NA's in Bruv SST data
+
+slope <- df2 %>% group_by(sample) %>% summarize(mean(slope))
+any(is.na(slope)) # no NA's in Bruv slope data
+
+
 
 # 3. Make covariates in long formate using reshape2 package ----
 
@@ -136,9 +153,8 @@ head(dfl)
 str(dfl)
 
 # check for NAs in covariates
-any(is.na(dfl$value))
-which(is.na(dfl$value))
-
+any(is.na(dfl$value)) 
+which(is.na(dfl$value)) 
 
 # check for NAs in cluster
 any(is.na(dfl$site))
@@ -205,8 +221,8 @@ cdm <- as.matrix(cd)
 ### Check Predicitor correlations ---
 
 # compute correlation matrix --
-C <- cor(cd[,c(2:17)], use = 'complete.obs') # remove NAs because they mess up the corr matrix
-head(round(C,2))
+C <- cor(cd[,c(2:11)], use = 'complete.obs') # remove NAs because they mess up the corr matrix
+head(round(C,2)) #Hayley got warning standard deviation is 0
 
 # correlogram : visualizing the correlation matrix --
 # http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram#:~:text=Correlogram%20is%20a%20graph%20of%20correlation%20matrix.&text=In%20this%20plot%2C%20correlation%20coefficients,corrplot%20package%20is%20used%20here.

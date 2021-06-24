@@ -35,16 +35,16 @@ dfs <- df
 coordinates(dfs) <- ~longitude+latitude 
 
 # Get bathy and detrended derivatives ----
-b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/'))
+b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/')) #HS did not run for new bathy
 
 # plot bathy and points
-plot(b)
-plot(dfs, pch = 20, cex = 1, add=T)
+plot(b) 
+plot(dfs, pch = 20, cex = 1, add=T) 
 
 
 
 # Load  derivatives ----
-bds <- stack(paste(r.dir, "SW_bathy.derivatives-to-260m.tif", sep='/'))
+bds <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/')) #changed to "Multibeam_derivatives.tif"
 names(bds)
 names2 <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 names(bds) <- names2$x
