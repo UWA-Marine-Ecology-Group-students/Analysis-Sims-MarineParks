@@ -7,7 +7,7 @@ library(sp)
 library(sf)
 library(raster)
 library(rgdal)
-library(spastat)
+library(spatstat)
 
 # clear workspace ----
 rm(list = ls())
