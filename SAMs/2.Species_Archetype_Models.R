@@ -313,7 +313,7 @@ colnames(pd)
 
 sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:78),
                                                          collapse = ','),
-                                          ") ~ poly(logdepth, raw = TRUE) + poly(flowdir, 2, raw = TRUE) + poly(aspect, 2, raw = TRUE) + poly(slope, 2, raw = TRUE) + poly(SSTster, 2, raw = TRUE)+ + poly(SSTtrend, 2, raw = TRUE)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
+                                          ") ~ poly(logdepth) + poly(flowdir, 2) + poly(aspect, 2) + poly(slope, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
 
 
 
