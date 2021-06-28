@@ -35,7 +35,7 @@ dfs <- df
 coordinates(dfs) <- ~longitude+latitude 
 
 # Get bathy and detrended derivatives ----
-#b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/')) #HS did not run for new bathy
+b <- raster(paste(r.dir, "Multibeam_derivatives.tif", sep='/')) #HS did not run for new bathy
 
 # plot bathy and points
 plot(b) 

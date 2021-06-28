@@ -61,7 +61,7 @@ length(which(is.na(df$logdepth)))
 
 
 
-# 2. Remove sp that are encountered less than 2.5% of the time ----
+ # 2. Remove sp that are encountered less than 2.5% of the time ----
 # as per Foster et al 2015 ----
 # 278 BRUV drops so far, going to work with 2.5% which is more than 2 BRUVs
 
@@ -69,7 +69,7 @@ head(df)
 names(df)
 
 no.bruvs <- length(levels(df$sample))
-threshold <- round(no.bruvs*0.025)
+threshold <- round(no.bruvs*0.05)
 
 names(df)
 
@@ -185,7 +185,7 @@ dim(pd) #
 
 # change column names for fomula because long names don't work with function --
 sp.names <- colnames(pd) # col names as species names
-new.names <- paste0('spp',1:79)
+new.names <- paste0('spp',1:62)
 colnames(pd) <- new.names
 pd
 
@@ -252,8 +252,8 @@ cor.mtest <- function(mat, ...) {
   p.mat
 }
 # matrix of the p-value of the correlation
-p.mat <- cor.mtest(cd[,c(2:17)])
-head(p.mat[, 1:16])
+p.mat <- cor.mtest(cd[,c(2:11)])
+head(p.mat[, 1:10])
 
 # customize correlogram --
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
@@ -291,7 +291,7 @@ mosthighlycorrelated <- function(mydataframe,numtoreport)
 }
 
 
-mosthighlycorrelated(cd[,c(2:17)], 30) # This results in only depth, rough and slope 4 not being correlated above 0.95
+mosthighlycorrelated(cd[,c(2:11)], 30) # This results in only depth, rough and slope 4 not being correlated above 0.95
 
 
 # 7. Make matrix of species and covariates ----
@@ -311,9 +311,9 @@ colnames(pd)
 
 #sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:59), collapse = ','),") ~ bathy + slope"))
 
-sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:78),
+sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:62),
                                                          collapse = ','),
-                                          ") ~ poly(logdepth) + poly(flowdir, 2) + poly(aspect, 2) + poly(slope, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
+                                          ") ~ poly(depth, 2) + poly(flowdir, 2) + poly(aspect, 2) + poly(slope, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
 
 
 
@@ -348,13 +348,13 @@ print(test_model)
 
 # look at the partial response of each covariate using:
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth","slope","aspect", "tpi", "flowdir", "SSTster"), mod = test_model)
+eff.df <- effectPlotData(focal.predictors = c("depth", "flowdir", "aspect", "slope", "SSTtrend"), mod = test_model)
 #eff.df <- effectPlotData(focal.predictors = c("bathy"), mod = test_model)
 plot(x = eff.df, object = test_model, na.rm = T)
 
 
 # Probability of each sp. belonging to each archetype ----
-arch_prob <- as.data.frame(test_model$taus)
+arch_prob <- as.data.frame(test_model$tau)
 head(arch_prob)
 names(arch_prob)
 head(sp.names.no)
@@ -392,9 +392,9 @@ summary(arch3)
 # remove one covariate at a time ----
 init_method='kmeans' 
 
-sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:78),
+sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:62),
                                                       collapse = ','),
-                                       ") ~ poly(depth, 2, raw = TRUE) + poly(slope, 2, raw = TRUE) +  poly(aspect, 2, raw = TRUE) + poly(flowdir, 2, raw = TRUE) + poly(SSTster, 2, raw = TRUE) +  poly(SSTtrend, 2, raw = TRUE)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
+                                       ") ~ poly(depth, 2) + poly(slope, 2) + poly(aspect, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
 
 
 sp_form <- ~1
@@ -428,7 +428,7 @@ print(test_model_b)
 dev.off()
 plot(test_model_b)
 par(mfrow=c(2,3))
-eff.df <- effectPlotData(focal.predictors = c("depth", "slope", "SSTster","SSTtrend", "aspect", "flowdir"), mod = test_model_b)
+eff.df <- effectPlotData(focal.predictors = c("depth","slope","SSTtrend","aspect"), mod = test_model_b)
 #eff.df <- effectPlotData(focal.predictors = c("bathy"), mod = test_model)
 plot(x = eff.df, object = test_model_b, na.rm = T)
 
@@ -442,7 +442,7 @@ sp.boot <- species_mix.bootstrap(
   quiet = FALSE
 )
 
-preds <- c("depth", "slope", "SSTtrend", "SSTster", "aspect", "flowdir")
+preds <- c("depth", "slope", "SSTtrend", "aspect", "flowdir")
 ef.plot <- effectPlotData(preds, test_model_b)
 head(ef.plot)
 dev.off()
