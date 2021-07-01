@@ -47,194 +47,76 @@ df <- read.csv(paste(dt.dir, "2020_sw_maxn.env-cov.csv", sep = '/'))%>%
   # At some point filter for successful count
   glimpse()
 head(df)
-str(df)
-names(df) # 294 BRUV deployments
 summary(df)
 levels(df$scientific) # 140 species
 
 ## Add log depth ----
 df <- df[,-36]
-df$logdepth <- log((df$depth.1*-1))
+df$logdepth <- log((df$depth.1 * -1))
 any(is.na(df$depth.1))
 any(is.na(df$logdepth))
 length(which(is.na(df$logdepth)))
 
+# clean rows with NA's in covariates
+summary(df)
+df <- df[!is.na(df$depth.1) == TRUE, ]
+summary(df)
 
-
- # 2. Remove sp that are encountered less than 2.5% of the time ----
+ # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
-# 278 BRUV drops so far, going to work with 2.5% which is more than 2 BRUVs
+tot_bruv  <- length(levels(df$sample))
+min_bruv  <- round(tot_bruv*0.05)
+min_bruv                                                                        # threshold number of samples
 
-head(df)
-names(df)
+# sort out which species occur less/more than threshold
+spw   <- dcast(df, sample ~ scientific, value.var = "maxn", 
+               fun.aggregate = sum, drop = TRUE)                                # species long to wide format
+spw[, 2:28] <- sapply(spw[, 2:28], as.numeric)                                  # make observations numeric
+sp_pa <- ifelse(spw[, 2:ncol(spw)] >= 1, 1, 0)                                  # make presence-absence df (only species maxn)
+sp_th <- colnames(sp_pa)[colSums(sp_pa) >= min_bruv]                            # list of species that occur more often than threshold
 
-no.bruvs <- length(levels(df$sample))
-threshold <- round(no.bruvs*0.05)
+df  <- df[df$scientific %in% c(sp_th), ]                                        # include only sp above threshold in df
+spw <- spw[ , colnames(spw) %in% c("sample", sp_th)]                            # same for wide species data
+unique(df$scientific)                                                           # species remaining
 
-names(df)
-
-# Species from wide to long --
-sp.to.remove <- df %>% 
-  dplyr::mutate(count = ifelse(maxn >= 1, '1', '0')) %>% # create new column with count = 1 
-  #tidyr::pivot_wider(names_from = sample, values_from = count, values_fill = 0) %>% # spread and if NA then = 0
-  dplyr::group_by(scientific) %>%
-  #dplyr::summarise_at(vars(37:75), funs(sum)) %>%
-  #dplyr::summarise_at(vars(33:42), list(~ sum(.))) %>%
-  dplyr::summarise_at(vars(3), list(~ sum(.))) %>% # sumarize by max n
-  dplyr::mutate(total.counts=rowSums(.[,2:(ncol(.))],na.rm = TRUE ))%>% # get occurrence no of BRUVS at which each sp. occurred
-  dplyr::ungroup() %>%
-  dplyr::arrange(total.counts) %>% # arrange ascending to see if any species found in less than 2 BRUVs
-  dplyr::filter(total.counts < threshold) %>%
-  dplyr::select(scientific) %>%
-  glimpse() 
-
-glimpse(sp.to.remove)
-names(sp.to.remove)
-to.remove <- sp.to.remove$scientific
-length(sp.to.remove$scientific) # 61 species removed
-
-# Remove species from df --
-df2 <- df %>% dplyr::filter(!scientific %in% to.remove) # remove rare sp
-df2 %>% count(scientific)
-df2 <- df2 %>% dplyr::filter(scientific != "Unknown spp") # remove unknowns, there are 10 unknowns
-
-df2 <- droplevels(df2) 
-length(levels(df2$scientific)) #  79 species remaining
-
-
-
-## In the meantime, remove BRUVs with NA's in covariates ----
-any(is.na(df2$SSTmean_SSTARRS))
-which(is.na(df2$SSTmean_SSTARRS))
-length(which(is.na(df2$SSTmean_SSTARRS))) # 711
-dim(df2) # 21762 rows
-
-
-df2 <- df2[!is.na(df2$SSTmean_SSTARRS),] # remove rows with NAs
-any(is.na(df2$SSTmean_SSTARRS)) # check again
-d2 <- droplevels(df2)
-length(levels(df2$sample)) #  278 #Hayley got 294
-dim(df2) # 21138 rows #Hayley got 22515   36
-
-any(is.na(df2$slope))
-which(is.na(df2$slope))
-length(which(is.na(df$slope)))
-dim(df2)
-
-df2 <- df2[!is.na(df2$slope),] # remove rows with NAs
-any(is.na(df2$slope)) # check again
-d2 <- droplevels(df2)
-length(levels(df2$sample)) 
-dim(df2) 
-
-
-head(df2)
-summary(df2)
-
-temp <- df2 %>% group_by(sample) %>% summarize(mean(SSTmean_SSTARRS))
-any(is.na(temp)) # no NA's in Bruv SST data
-
-slope <- df2 %>% group_by(sample) %>% summarize(mean(slope))
-any(is.na(slope)) # no NA's in Bruv slope data
-
-
-
-# 3. Make covariates in long formate using reshape2 package ----
-
-names(df2)
-
-dfl <- melt(df2,
-            id.vars = names(df)[c(2:26)],
-            measure.vars = names(df)[c(27:36)],
-            variable.name = "covariate",
-            value.name = "value"
-)
-head(dfl)
-str(dfl)
-
-# check for NAs in covariates
-any(is.na(dfl$value)) 
-which(is.na(dfl$value)) 
-
-# check for NAs in cluster
-any(is.na(dfl$site))
-which(is.na(dfl$site))
-
-
-# check maxn numbers
-head(dfl)
-max(dfl$maxn) # 600
-min(dfl$maxn) # 0
-
-
-
-
-
-
-# 4. Species data into matrix ----
-pd <- table_to_species_data(
-  dfl,
-  site_id = "sample", # use cluster? or status?
-  species_id = "scientific",
-  measurement_id = "maxn"
-)
-
-pd
-class(pd)
-dim(pd) #
-
-# change column names for fomula because long names don't work with function --
-sp.names <- colnames(pd) # col names as species names
-new.names <- paste0('spp',1:62)
-colnames(pd) <- new.names
-pd
-
-# save names for later
-sp.names.no <- as.data.frame(cbind(sp.names, new.names))
+# 3. Prepare species and covariates in matrix for ecomix ----
+spw_m <- as.matrix(spw)
+colnames(spw_m) <- c("sample", paste0("spp", 1:length(sp_th)))                  # long names don't work with ecomix
+sp.names.no <- as.data.frame(cbind(sp_th, paste0("spp", 1:length(sp_th))))      # save names for later
 head(sp.names.no)
 
-# 5. Covariate data into wide df ----
-names(dfl)
-str(dfl)
-head(dfl)
+cov_m <- df[ , c(2, 27:36)]
+colnames(cov_m) <- c("sample"  ,"depth",  "slope"  ,  "aspect", "roughness",
+                     "tpi", "flowdir", "SSTmean", "SSTster", 
+                     "SSTtrend", "logdepth")     
+summary(cov_m)                                                                  # remove sstster, as it's all one value
+cov_m <- cov_m[ , -9]
+cov_m$depth <- cov_m$depth * -1
+cov_m$flowdir <- as.numeric(cov_m$flowdir)
+cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
+# cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                              # make observations numeric
+cov_m <- as.matrix(cov_m)
 
-cd <- reshape(dfl[,c(1,26,27)], idvar = "sample", timevar = "covariate", direction = "wide")
+cov_ms <- scale(cov_m[, -1])                                                    # scale/standardise covariates
+allmat <- cbind(spw_m, cov_ms)                                                  # join species and scaled covariates
+str(allmat)                                                                     # checking form of each variable
+allmat[ , c(2:28, 31:39)] <- sapply(allmat[, c(2:28, 31:39)], as.numeric)       # ecomix seems to need numeric
 
-cd
-class(cd)
-colnames(cd)
-colnames(cd) <- c("sample"  ,"depth",  "slope"  ,  "aspect", "roughness", "tpi", "flowdir",
-                  "SSTmean", "SSTster", "SSTtrend", "logdepth")     
+# 6. Calculate correlation coefficient between covariates ----
 
-dim(cd)
-
-cdm <- as.matrix(cd)
-
- 
-
-
-
-# 6. Calculate correlation coeficient between covariates ----
-
-# Plot predictors correlations by class --
-
-### Check Predicitor correlations ---
+## Check correlation among covariates ---
 
 # compute correlation matrix --
-C <- cor(cd[,c(2:11)], use = 'complete.obs') # remove NAs because they mess up the corr matrix
-head(round(C,2)) #Hayley got warning standard deviation is 0
+cormat <- cor(cov_m[,c(2:10)], use = 'complete.obs')
+head(round(cormat,2)) 
 
 # correlogram : visualizing the correlation matrix --
-# http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram#:~:text=Correlogram%20is%20a%20graph%20of%20correlation%20matrix.&text=In%20this%20plot%2C%20correlation%20coefficients,corrplot%20package%20is%20used%20here.
+# http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram#
 #Positive correlations are displayed in blue and negative correlations in red color. 
 #Color intensity and the size of the circle are proportional to the correlation coefficients
-corrplot(C, method="circle")
-corrplot(C, method="pie")
-corrplot(C, method="color")
-corrplot(C, method="number", type = "upper")
-corrplot(C, method="color", type = "lower", order="hclust") #  “hclust” for hierarchical clustering order is used in the following examples
+corrplot(cormat, method="number", type = "upper")
 
-# compute the p-value of correlations --
+# adding function to compute the p-value of correlations --
 # mat : is a matrix of data
 # ... : further arguments to pass to the native R cor.test function
 cor.mtest <- function(mat, ...) {
@@ -252,12 +134,12 @@ cor.mtest <- function(mat, ...) {
   p.mat
 }
 # matrix of the p-value of the correlation
-p.mat <- cor.mtest(cd[,c(2:11)])
-head(p.mat[, 1:10])
+p.mat <- cor.mtest(cov_m[ , 2:10])
+head(p.mat[ , 1:9])
 
 # customize correlogram --
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot(C, method="color", col=col(100),  
+corrplot(cormat, method="color", col=col(100),  
          type="upper", order="hclust", 
          addCoef.col = "black", # Add coefficient of correlation
          tl.col="black", tl.srt=45, #Text label color and rotation
@@ -291,42 +173,25 @@ mosthighlycorrelated <- function(mydataframe,numtoreport)
 }
 
 
-mosthighlycorrelated(cd[,c(2:11)], 30) # This results in only depth, rough and slope 4 not being correlated above 0.95
+mosthighlycorrelated(cov_m[ , c(2:10)], 10) # only depth, rough and slope 4 not being correlated above 0.95
 
 
-# 7. Make matrix of species and covariates ----
-dd <- make_mixture_data(species_data = pd,
-                        covariate_data = cd) # use standarlized covariates
-dd # I think this is what I need to use for the models
-dim(dd)
 
-# 8. Optimize number of archetypes ----
-# Fit species mix model using diffent number of archetypes and checking BIC --
-
-colnames(cd)
-class(cd)
-head(cd)
-cd.df <- as.data.frame(cd)
-colnames(pd)
-
-#sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:59), collapse = ','),") ~ bathy + slope"))
-
-sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:62),
+# 7. Optimize number of archetypes ----
+# Fit species mix model using different number of archetypes and checking BIC --
+sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27), 
                                                          collapse = ','),
-                                          ") ~ poly(depth, 2) + poly(flowdir, 2) + poly(aspect, 2) + poly(slope, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
-
-
-
+                                          ") ~ poly(depth, 2) + 
+                                          poly(flowdir, 2) + 
+                                          poly(aspect, 2) + poly(slope, 2) + 
+                                          poly(SSTtrend, 2)"))                  # raw = T will stop you from using orthogonal polynomials, which are not working yet
 sp_form <- ~1
-
 
 test_model <- species_mix(
   archetype_formula = sam_form_full,
-  #poly(slope, degree = 2, raw = TRUE) + poly(tpi, degree = 2, raw = TRUE) + poly(aspect, degree = 2, raw = TRUE) +
-  #poly(temp_mean, degree = 2, raw = TRUE) + poly(temp_trend, degree = 2, raw = TRUE)),
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
-  data=dd,
+  data=allmat,
   nArchetypes = 3,
   family = "negative.binomial",
   #offset = NULL,
@@ -334,7 +199,7 @@ test_model <- species_mix(
   #bb_weights = NULL,
   #size = NULL, # for presence absence - benthic point data
   #power = NULL, # for tweedie : eg. biomass data
-  control = list(), # for tuning the model if needed
+  #control = list(), # for tuning the model if needed
   #inits = NULL, # if you have fitted the model previously: use the same values
   #standardise = FALSE, # has been removed in new update it scales
   #titbits = TRUE # could turn this off
@@ -392,9 +257,10 @@ summary(arch3)
 # remove one covariate at a time ----
 init_method='kmeans' 
 
-sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:62),
+sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
                                                       collapse = ','),
-                                       ") ~ poly(depth, 2) + poly(slope, 2) + poly(aspect, 2) + poly(SSTtrend, 2)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
+                                       ") ~ poly(depth, 2) + poly(slope, 2) +
+                                       poly(aspect, 2) + poly(SSTtrend, 2)"))   # raw = T will stop you from using orthogonal polynomials, which are not working yet
 
 
 sp_form <- ~1
@@ -405,7 +271,7 @@ test_model_b <- species_mix(
   #poly(temp_mean, degree = 2, raw = TRUE) + poly(temp_trend, degree = 2, raw = TRUE)),
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
-  data=dd,
+  data=allmat,
   nArchetypes = 3,
   family = "negative.binomial",
   #offset = NULL,
@@ -489,9 +355,10 @@ summary(arch3)
 
 # 10. Final model ----
 
-sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:78),
+sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
                                                     collapse = ','),
-                                     ") ~ poly(bathy, 2, raw = TRUE) + poly(tpi, 2, raw = TRUE) ++ poly(aspect, 2, raw = TRUE)")) # raw = T will stop you from using orthogonal polynomials, which are not working yet
+                                     ") ~ poly(bathy, 2) + poly(tpi, 2) + 
+                                     poly(aspect, 2)"))
 
 
 A_model <- species_mix(
@@ -500,7 +367,7 @@ A_model <- species_mix(
   #poly(temp_mean, degree = 2, raw = TRUE) + poly(temp_trend, degree = 2, raw = TRUE)),
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
-  data=dd,
+  data=allmat,
   nArchetypes = 2,
   family = "negative.binomial",
   #offset = NULL,
