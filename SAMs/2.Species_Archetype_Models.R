@@ -62,7 +62,7 @@ summary(df)
 df <- df[!is.na(df$depth.1) == TRUE, ]
 summary(df)
 
- # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
+# 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
 tot_bruv  <- length(levels(df$sample))
 min_bruv  <- round(tot_bruv*0.05)
@@ -80,9 +80,9 @@ spw <- spw[ , colnames(spw) %in% c("sample", sp_th)]                            
 unique(df$scientific)                                                           # species remaining
 
 # 3. Prepare species and covariates in matrix for ecomix ----
-spw_m <- as.matrix(spw)
+spw_m <- spw
 colnames(spw_m) <- c("sample", paste0("spp", 1:length(sp_th)))                  # long names don't work with ecomix
-sp.names.no <- as.data.frame(cbind(sp_th, paste0("spp", 1:length(sp_th))))      # save names for later
+sp.names.no     <- as.data.frame(cbind(sp_th, paste0("spp", 1:length(sp_th))))  # save names for later
 head(sp.names.no)
 
 cov_m <- df[ , c(2, 27:36)]
@@ -90,19 +90,18 @@ colnames(cov_m) <- c("sample"  ,"depth",  "slope"  ,  "aspect", "roughness",
                      "tpi", "flowdir", "SSTmean", "SSTster", 
                      "SSTtrend", "logdepth")     
 summary(cov_m)                                                                  # remove sstster, as it's all one value
-cov_m <- cov_m[ , -9]
-cov_m$depth <- cov_m$depth * -1
+cov_m         <- cov_m[ , -9]
+cov_m$depth   <- cov_m$depth * -1                                               # ecomix doesn't seem to like negatives?
 cov_m$flowdir <- as.numeric(cov_m$flowdir)
 cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
-# cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                              # make observations numeric
-cov_m <- as.matrix(cov_m)
+cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                                # make observations numeric
 
-cov_ms <- scale(cov_m[, -1])                                                    # scale/standardise covariates
-allmat <- cbind(spw_m, cov_ms)                                                  # join species and scaled covariates
+# cov_ms <- scale(cov_m[, -1])                                                    # scale/standardise covariates (leave for now)
+allmat <- cbind(spw_m, cov_m)                                                   # join species and scaled covariates
 str(allmat)                                                                     # checking form of each variable
-allmat[ , c(2:28, 31:39)] <- sapply(allmat[, c(2:28, 31:39)], as.numeric)       # ecomix seems to need numeric
+# allmat[ , c(2:28, 30:38)] <- sapply(allmat[, c(2:28, 30:38)], as.numeric)       # ecomix seems to need numeric
 
-# 6. Calculate correlation coefficient between covariates ----
+# 4. Calculate correlation coefficient between covariates ----
 
 ## Check correlation among covariates ---
 
@@ -177,7 +176,7 @@ mosthighlycorrelated(cov_m[ , c(2:10)], 10) # only depth, rough and slope 4 not 
 
 
 
-# 7. Optimize number of archetypes ----
+# 5. Optimize number of archetypes ----
 # Fit species mix model using different number of archetypes and checking BIC --
 sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27), 
                                                          collapse = ','),
@@ -251,7 +250,7 @@ summary(arch3)
 
 
 
-## 9. Optimize number of covariates ----
+## 6. Optimize number of covariates ----
 # now that you know the no. of archetypes, start removing convariates and test AIC to find the most parismonious model--
 
 # remove one covariate at a time ----
@@ -353,7 +352,7 @@ summary(arch3)
 #write.csv(arch3, paste(o.dir, "species_archetypes_m5.csv", sep ='/'))
 
 
-# 10. Final model ----
+# 7. Final model ----
 
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
                                                     collapse = ','),
