@@ -582,7 +582,6 @@ sp.var <- vcov(
 
 
 
-
 ## 13. Predict ----
 
 # load predictors --
@@ -591,49 +590,49 @@ sp.var <- vcov(
 b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
 plot(b)
 # cut to 150 m depth --
-b[b < -150] <- NA
-b[b > -30] <- NA
-plot(b)
+#b[b < -150] <- NA
+#b[b > -30] <- NA
+#plot(b)
 
 # derivatives --
-d <- stack(paste(r.dir, "SW_detrendend.derivatives-to-260m.tif", sep='/'))
+d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 plot(d)
 names(d)
-n <- read.csv(paste(r.dir, "names.det.bath.csv", sep='/'))
+n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 n
-n$covs <- c("detrended.bathy", "slope", "flowdir", "tri", "tpi", "aspect")
-names(d) <- n[,3]
+#n$covs <- c("depth", "slope", "aspect", "roughness", "tpi", "flowdir")
+#names(d) <- n[,3]
 
 # crop bathy to stack --
-b2 <- crop(b, d)
-d <- mask(d, b2)
-plot(d)
+#b2 <- crop(b, d)
+#d <- mask(d, b2)
+#plot(d)
 
 # stack preds --
-d2 <- stack(d$tpi, d$aspect, b2)
-plot(d2)
+#d2 <- stack(d$depth, d$slope)
+#plot(d2)
 
 
-
-d3 <- as.data.frame(d2, xy = TRUE)
+d3 <- as.data.frame(d, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'tpi', 'aspect', 'bathy')
+names(d3) <- c('x', 'y', 'depth', 'slope')
 str(d3)
 any(is.na(d3$slope))
 length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
+memory.size(30000)
 
 # predict ##
 ptest2 <- predict(
   A_model,
   sp.boot,
   #nboot = 100,
-  d3[,c(3:5)],
+  d3[,c(3:4)],
   #alpha = 0.95,
-  mc.cores = 2,
+  mc.cores = 3,
   prediction.type = "archetype"
 )
 
