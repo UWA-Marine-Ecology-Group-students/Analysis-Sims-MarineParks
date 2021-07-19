@@ -564,6 +564,8 @@ sp.boot <- species_mix.bootstrap(
   quiet = FALSE
 )
 
+saveRDS(sp.boot, paste(model.dir, "sp.boot.rds", sep ='/'))
+
 
 plot(ef.plot,
      A_model, 
@@ -583,6 +585,9 @@ sp.var <- vcov(
 
 
 ## 13. Predict ----
+model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
+A_model <- readRDS(paste(model.dir, "A_model.rds", sep='/'))
+A_model
 
 # load predictors --
 
@@ -601,7 +606,7 @@ names(d)
 n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 n
 #n$covs <- c("depth", "slope", "aspect", "roughness", "tpi", "flowdir")
-#names(d) <- n[,3]
+names(d) <- n[,2]
 
 # crop bathy to stack --
 #b2 <- crop(b, d)
@@ -611,9 +616,17 @@ n
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
+d2 <- stack(d$depth, d$slope)
+plot(d2)
 
+plot(d$depth)
+#e <- drawExtent()
+e <- extent(114.7212, 114.9377, -34.13335, -34.12439)
 
-d3 <- as.data.frame(d, xy = TRUE)
+d2.2 <- crop(d2, e)
+plot(d2.2)
+
+d3 <- as.data.frame(d2.2, xy = TRUE)
 dim(d3)
 head(d3)
 names(d3) <- c('x', 'y', 'depth', 'slope')
@@ -623,7 +636,7 @@ length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
-memory.size(30000)
+#memory.size(30000)
 
 # predict ##
 ptest2 <- predict(
@@ -650,10 +663,10 @@ head(SAMpreds)
 
 
 coordinates(SAMpreds) <- ~x+y
-A1 <- SAMpreds[,4]
-A2 <- SAMpreds[,5]
-A3 <- SAMpreds[,6]
-A4 <- SAMpreds[,7]
+A1 <- SAMpreds[,3]
+A2 <- SAMpreds[,4]
+A3 <- SAMpreds[,5]
+A4 <- SAMpreds[,6]
 
 gridded(A1) <- TRUE
 gridded(A2) <- TRUE
@@ -669,6 +682,7 @@ Allpreds <- stack(A1preds, A2preds, A3preds, A4preds)
 plot(Allpreds)
 
 
+##########################################################
 
 # PREDICT using test model ----
 
