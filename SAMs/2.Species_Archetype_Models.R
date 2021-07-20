@@ -96,6 +96,9 @@ cov_m$flowdir <- as.numeric(cov_m$flowdir)
 cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
 cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                                # make observations numeric
 
+## scaling and centring covariates can help with model fitting
+# cov_m[,-1] <- scale(cov_m[,-1])
+
 # cov_ms <- scale(cov_m[, -1])                                                    # scale/standardise covariates (leave for now)
 allmat <- cbind(spw_m, cov_m)                                                   # join species and scaled covariates
 str(allmat)                                                                     # checking form of each variable
@@ -174,14 +177,14 @@ mosthighlycorrelated <- function(mydataframe,numtoreport)
 
 mosthighlycorrelated(cov_m[ , c(2:10)], 10) # only depth, rough and slope 4 not being correlated above 0.95
 
-
+## I would remove log(depth) and roughness
 
 # 5. Optimize number of archetypes ----
 # Fit species mix model using different number of archetypes and checking BIC --
 sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27), 
                                                          collapse = ','),
                                           ") ~ poly(depth, 2) + 
-                                          poly(flowdir, 2) + 
+                                          poly(flowdir, 2) + poly(SSTmean,2) +
                                           poly(aspect, 2) + poly(slope, 2) + 
                                           poly(SSTtrend, 2)"))                  # raw = T will stop you from using orthogonal polynomials, which are not working yet
 sp_form <- ~1
@@ -198,7 +201,7 @@ test_model <- species_mix(
   #bb_weights = NULL,
   #size = NULL, # for presence absence - benthic point data
   #power = NULL, # for tweedie : eg. biomass data
-  #control = list(), # for tuning the model if needed
+  # control = list(ecm_refit=3,init_method='random2',init_sd=0.2), # for tuning the model if needed
   #inits = NULL, # if you have fitted the model previously: use the same values
   #standardise = FALSE, # has been removed in new update it scales
   #titbits = TRUE # could turn this off
@@ -209,10 +212,11 @@ BIC(test_model) # this gives a valie of BIC
 AIC(test_model)
 print(test_model)
 
+# boots <- species_mix.bootstrap(test_model)
 
 # look at the partial response of each covariate using:
-par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth", "flowdir", "aspect", "slope", "SSTtrend"), mod = test_model)
+par(mfrow=c(3,2))
+eff.df <- effectPlotData(focal.predictors = c("depth", "flowdir", "aspect", "slope","SSTmean", "SSTtrend"), mod = test_model)
 #eff.df <- effectPlotData(focal.predictors = c("bathy"), mod = test_model)
 plot(x = eff.df, object = test_model, na.rm = T)
 
@@ -356,7 +360,7 @@ summary(arch3)
 
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
                                                     collapse = ','),
-                                     ") ~ poly(bathy, 2) + poly(tpi, 2) + 
+                                     ") ~ poly(depth, 2) + poly(tpi, 2) + 
                                      poly(aspect, 2)"))
 
 
@@ -367,14 +371,14 @@ A_model <- species_mix(
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 2,
+  nArchetypes = 4,
   family = "negative.binomial",
   #offset = NULL,
   #weights = NULL,
   #bb_weights = NULL,
   #size = NULL, # for presence absence - benthic point data
   #power = NULL, # for tweedie : eg. biomass data
-  control = list(), # for tuning the model if needed
+  control = list(ecm_refit=5,init_method='random2',init_sd=0.1), # for tuning the model if needed
   #inits = NULL, # if you have fitted the model previously: use the same values
   #standardise = FALSE, # has been removed in new update it scales
   #titbits = TRUE # could turn this off
@@ -388,18 +392,20 @@ A_model$coefs
 A_model$alpha
 A_model$beta
 A_model$lofl
-A_model$gamma
+A_model$gamma ## -999999 stands for NA as these parameters are not estimated in this model.
 A_model$delta
 A_model$theta
 
 # look at the partial response of each covariate using:
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("bathy","tpi", "aspect"), mod = A_model)
+eff.df <- effectPlotData(focal.predictors = c("depth","tpi", "aspect"), mod = A_model)
 plot(x = eff.df, object = A_model)
 
 
 # 11. Probability of each sp. belonging to each archetype ----
-arch_prob <- as.data.frame(A_model$taus)
+arch_prob <- round(A_model$tau,3)
+arch_spp <- apply(arch_prob,1,which.max)
+table(arch_spp)
 head(arch_prob)
 names(arch_prob)
 head(sp.names.no)
@@ -436,41 +442,52 @@ summary(arch3)
 
 # 12. Plots ----
 
-plot(A_model)
+plot(A_model,type='link',species="spp1")
+plot(A_model,type='link',species="spp2")
+plot(A_model,type='link',species="spp3")
+plot(A_model,species="spp1")
+plot(A_model,species="spp2")
+plot(A_model,species="spp3")
 
-preds <- c("bathy","tpi", "aspect")
 
-
+preds <- c("depth","tpi", "aspect")
 ef.plot <- effectPlotData(preds, A_model)
 head(ef.plot)
 
-ef.plot$bathy
+# ef.plot$bathy
+par(mfrow=c(1,3))
 plot(ef.plot, A_model)
 
 
-sp.boot <- species_mix.bootstrap(
-  A_model,
-  nboot = 100,
-  type = "BayesBoot",
-  #mc.cores = 2,
-  quiet = FALSE
-)
+## I think this is the issue, I will fix and get back to you.
+# sp.boot <- species_mix.bootstrap(
+#   A_model,
+#   nboot = 100,
+#   type = "BayesBoot",
+#   #mc.cores = 2,
+#   quiet = FALSE
+# )
 
 
-plot(ef.plot,
-     A_model, 
-     sp.boot,
-)
+# plot(ef.plot,
+#      A_model, 
+#      sp.boot,
+# )
 
 
-# still not sure what to use this for --
-sp.var <- vcov(
-  A_model,
-  sp.boot = sp.boot,
-  method = "BayesBoot",
-  nboot = 10,
-  mc.cores = 2
-)
+# still not sure what to use this for.
+# this is an alternative to bootstrap. All used in summary.
+# e.g
+# test_model$vcov <- vcov(test_model)
+
+
+# sp.var <- vcov(
+#   A_model,
+#   sp.boot = sp.boot,
+#   method = "BayesBoot",
+#   nboot = 10,
+#   mc.cores = 2
+# )
 
 
 
@@ -482,10 +499,13 @@ sp.var <- vcov(
 # bathy --
 b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/'))
 plot(b)
+b <- b*-1 # remember that you transformed depth above 
+head(allmat)
 # cut to 150 m depth --
-b[b < -150] <- NA
-b[b > -30] <- NA
+b[b > 150] <- NA
+b[b < 30] <- NA
 plot(b)
+
 
 # derivatives --
 d <- stack(paste(r.dir, "SW_detrendend.derivatives-to-260m.tif", sep='/'))
@@ -510,35 +530,37 @@ plot(d2)
 d3 <- as.data.frame(d2, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'tpi', 'aspect', 'bathy')
+names(d3) <- c('x', 'y', 'tpi', 'aspect', 'depth')
 str(d3)
 any(is.na(d3$slope))
 length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
+modrange <- apply(allmat[,c('tpi', 'aspect', 'depth')],2,range)
+newobs <- d3
+summary(newobs)
+newobs.range <- newobs[,-1:-2]
 
+idx <- sapply(1:ncol(newobs.range),function(x)ifelse(newobs.range[,x]>=modrange[1,x]&newobs.range[,x]<=modrange[2,x],1,NA))
+env.in.range.idx <- which(complete.cases(idx))
+newobs2 <- newobs[env.in.range.idx,]
+
+dim(d3)
+dim(newobs2)
 # predict ##
-ptest2 <- predict(
-  A_model,
-  sp.boot,
-  #nboot = 100,
-  d3[,c(3:5)],
-  #alpha = 0.95,
-  mc.cores = 2,
-  prediction.type = "archetype"
-)
+ptest2 <- predict(A_model, newdata = newobs2)
 
 
 class(ptest2)
-str(ptest2$ptPreds)
-head(ptest2$ptPreds)
-ptest2$ptPreds
+# # str(ptest2$ptPreds)
+# head(ptest2$ptPreds)
+# ptest2$ptPreds
 
-Apreds <- ptest2$ptPreds
+Apreds <- ptest2#$ptPreds
 head(Apreds)
 
-SAMpreds <- cbind(d3, Apreds)
+SAMpreds <- cbind(newobs2, Apreds)
 head(SAMpreds)
 
 
