@@ -499,7 +499,7 @@ plot(ef.plot, A_model)
 # bathy --
 b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/'))
 plot(b)
-b <- b*-1 # remember that you transformed depth above 
+b <- b*-1 # remember that you transformed depth above so you need to make depth * -1
 head(allmat)
 # cut to 150 m depth --
 b[b > 150] <- NA
@@ -537,18 +537,21 @@ length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
+
+## this little bit of code will drop site which sit outside of model space.
 modrange <- apply(allmat[,c('tpi', 'aspect', 'depth')],2,range)
 newobs <- d3
 summary(newobs)
 newobs.range <- newobs[,-1:-2]
-
 idx <- sapply(1:ncol(newobs.range),function(x)ifelse(newobs.range[,x]>=modrange[1,x]&newobs.range[,x]<=modrange[2,x],1,NA))
 env.in.range.idx <- which(complete.cases(idx))
 newobs2 <- newobs[env.in.range.idx,]
 
 dim(d3)
 dim(newobs2)
+
 # predict ##
+## I also removed bootstrap for now as there is an issues with the dispersion parameters in the bootstrap.
 ptest2 <- predict(A_model, newdata = newobs2)
 
 
