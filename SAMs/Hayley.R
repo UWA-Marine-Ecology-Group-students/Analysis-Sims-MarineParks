@@ -77,7 +77,7 @@ names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  ,   "tpi" ,   "flow
 
 
 # save stack of derivatives
-writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
+#writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 
 #Script 1 #####################################
 
@@ -166,8 +166,11 @@ length(which(is.na(df$logdepth)))
 
 # clean rows with NA's in covariates
 summary(df)
-df <- df[!is.na(df$depth.1) == TRUE, ]
+df <- df[!is.na(df$depth.1) == TRUE, ] %>%
+  droplevels()
 summary(df)
+head(df)
+
 
 # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
