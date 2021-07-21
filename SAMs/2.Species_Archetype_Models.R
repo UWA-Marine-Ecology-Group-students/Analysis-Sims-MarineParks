@@ -497,7 +497,7 @@ plot(ef.plot, A_model)
 # load predictors --
 
 # bathy --
-b <- raster(paste(r.dir, "SW_bathy-to-260m.tif", sep='/'))
+b <- raster(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 plot(b)
 b <- b*-1 # remember that you transformed depth above so you need to make depth * -1
 head(allmat)
@@ -508,12 +508,12 @@ plot(b)
 
 
 # derivatives --
-d <- stack(paste(r.dir, "SW_detrendend.derivatives-to-260m.tif", sep='/'))
+d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 plot(d)
 names(d)
 n <- read.csv(paste(r.dir, "names.det.bath.csv", sep='/'))
 n
-n$covs <- c("detrended.bathy", "slope", "flowdir", "tri", "tpi", "aspect")
+n$covs <- c("depth", "slope", "flowdir", "aspect")
 names(d) <- n[,3]
 
 # crop bathy to stack --
@@ -530,7 +530,7 @@ plot(d2)
 d3 <- as.data.frame(d2, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'tpi', 'aspect', 'depth')
+names(d3) <- c('x', 'y', 'depth', 'aspect', 'slope', 'flowdir')
 str(d3)
 any(is.na(d3$slope))
 length(which(is.na(d3$slope)))
@@ -539,7 +539,7 @@ str(d3)
 
 
 ## this little bit of code will drop site which sit outside of model space.
-modrange <- apply(allmat[,c('tpi', 'aspect', 'depth')],2,range)
+modrange <- apply(allmat[,c('slope', 'aspect', 'depth', 'flowdir')],2,range)
 newobs <- d3
 summary(newobs)
 newobs.range <- newobs[,-1:-2]
@@ -605,7 +605,7 @@ sp.boot <- species_mix.bootstrap(
 # load predictors --
 
 # bathy --
-b <- stack(paste(r.dir, "SW_bathy.derivatives-to-260m.tif", sep='/'))
+b <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 plot(b)
 names(b)
 nam <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
@@ -747,7 +747,7 @@ summary.species_mix(test_model_b, sp.var)
 # load predictors --
 
 # bathy --
-b <- stack(paste(r.dir, "SW_bathy.derivatives-to-260m.tif", sep='/'))
+b <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 plot(b)
 names(b)
 nam <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
