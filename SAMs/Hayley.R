@@ -77,7 +77,7 @@ names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  ,   "tpi" ,   "flow
 
 
 # save stack of derivatives
-#writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
+writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 
 #Script 1 #####################################
 
@@ -175,7 +175,7 @@ head(df)
 # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
 tot_bruv  <- length(levels(df$sample))
-min_bruv  <- round(tot_bruv*0.05)
+min_bruv  <- round(tot_bruv*0.025)
 min_bruv                                                                        # threshold number of samples
 
 # sort out which species occur less/more than threshold
@@ -290,7 +290,7 @@ mosthighlycorrelated(cov_m[ , c(2:10)], 10) # only depth, rough and slope 4 not 
 
 # 5. Optimize number of archetypes ----
 # Fit species mix model using different number of archetypes and checking BIC --
-sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27), 
+sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49), 
                                                          collapse = ','),
                                           ") ~ poly(depth, 2) + 
                                           poly(slope, 2)"))                  # raw = T will stop you from using orthogonal polynomials, which are not working yet
@@ -368,7 +368,7 @@ summary(arch3)
 # remove one covariate at a time ----
 init_method='kmeans' 
 
-sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
+sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49),
                                                       collapse = ','),
                                        ") ~ poly(depth, 2) + poly(slope, 2)"))   # raw = T will stop you from using orthogonal polynomials, which are not working yet
 
@@ -465,7 +465,7 @@ summary(arch3)
 
 # 7. Final model ----
 
-sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:27),
+sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49),
                                                     collapse = ','),
                                      ") ~ poly(depth, 2) +
                                      poly(slope, 2)"))
@@ -544,7 +544,6 @@ summary(arch3)
 
 
 
-
 # 12. Plots ----
 
 plot(A_model)
@@ -555,42 +554,42 @@ preds <- c("slope","depth")
 ef.plot <- effectPlotData(preds, A_model)
 head(ef.plot)
 
-ef.plot$bathy
-plot(ef.plot, A_model)
+#ef.plot$bathy
+#plot(ef.plot, A_model)
 
 
-sp.boot <- species_mix.bootstrap(
-  A_model,
-  nboot = 100,
-  type = "BayesBoot",
+#sp.boot <- species_mix.bootstrap(
+  #A_model,
+  #nboot = 100,
+  #type = "BayesBoot",
   #mc.cores = 2,
-  quiet = FALSE
-)
+  #quiet = FALSE
+#)
 
-saveRDS(sp.boot, paste(model.dir, "sp.boot.rds", sep ='/'))
+#saveRDS(sp.boot, paste(model.dir, "sp.boot.rds", sep ='/'))
 
 
-plot(ef.plot,
-     A_model, 
-     sp.boot,
-)
+#plot(ef.plot,
+     #A_model, 
+     #sp.boot,
+#)
 
 
 # still not sure what to use this for --
-sp.var <- vcov(
-  A_model,
-  sp.boot = sp.boot,
-  method = "BayesBoot",
-  nboot = 10,
-  mc.cores = 2
-)
+#sp.var <- vcov(
+ # A_model,
+  #sp.boot = sp.boot,
+  #method = "BayesBoot",
+  #nboot = 10,
+  #mc.cores = 2
+#)
 
 
 
 ## 13. Predict ----
-model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
-A_model <- readRDS(paste(model.dir, "A_model.rds", sep='/'))
-A_model
+#model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
+#A_model <- readRDS(paste(model.dir, "A_model.rds", sep='/'))
+#A_model
 
 # load predictors --
 
@@ -643,23 +642,26 @@ str(d3)
 
 # predict ##
 ptest2 <- predict(
-  A_model,
-  sp.boot,
+  object=A_model,
+  #sp.boot,
   #nboot = 100,
-  d3[,c(3:4)],
+  #newdata=d3[,c(3:4)],
   #alpha = 0.95,
-  mc.cores = 3,
+  #mc.cores = 3,
   prediction.type = "archetype"
 )
 
-
+plot(ptest2)
+#plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
 class(ptest2)
-str(ptest2$ptPreds)
-head(ptest2$ptPreds)
-ptest2$ptPreds
+str(ptest2)
+head(ptest2)
+#ptest2$ptPreds
 
-Apreds <- ptest2$ptPreds
+Apreds <- ptest2
 head(Apreds)
+
+#d3.1<- d3[ , c(2, 27:36)]
 
 SAMpreds <- cbind(d3, Apreds)
 head(SAMpreds)
