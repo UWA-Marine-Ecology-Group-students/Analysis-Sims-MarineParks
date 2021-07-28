@@ -605,7 +605,7 @@ names(d) <- n[,2]
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
-d2 <- stack(d$depth * -1, d$slope)
+d2 <- stack(d$depth * -1, d$slope)                                              # make depth positive (matching the conversion we did before modelling)
 plot(d2)
 
 plot(d$depth)
