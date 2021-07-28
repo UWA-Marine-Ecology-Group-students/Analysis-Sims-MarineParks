@@ -175,13 +175,13 @@ head(df)
 # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
 tot_bruv  <- length(levels(df$sample))
-min_bruv  <- round(tot_bruv*0.025)
+min_bruv  <- round(tot_bruv * 0.05)
 min_bruv                                                                        # threshold number of samples
 
 # sort out which species occur less/more than threshold
 spw   <- dcast(df, sample ~ scientific, value.var = "maxn", 
                fun.aggregate = sum, drop = TRUE)                                # species long to wide format
-spw[, 2:28] <- sapply(spw[, 2:28], as.numeric)                                  # make observations numeric
+spw[ , -1] <- sapply(spw[ , -1], as.numeric)                                    # make observations numeric
 sp_pa <- ifelse(spw[, 2:ncol(spw)] >= 1, 1, 0)                                  # make presence-absence df (only species maxn)
 sp_th <- colnames(sp_pa)[colSums(sp_pa) >= min_bruv]                            # list of species that occur more often than threshold
 
@@ -315,7 +315,7 @@ test_model <- species_mix(
 )
 
 
-BIC(test_model) # this gives a valie of BIC
+BIC(test_model) # this gives a value of BIC
 AIC(test_model)
 print(test_model)
 
@@ -396,7 +396,7 @@ test_model_b <- species_mix(
 )
 
 
-BIC(test_model_b) # this gives a valie of BIC
+BIC(test_model_b) # this gives a value of BIC
 AIC(test_model_b)
 print(test_model_b)
 
@@ -418,7 +418,7 @@ sp.boot <- species_mix.bootstrap(
   quiet = FALSE
 )
 
-preds <- c("depth", "slope")
+apreds <- c("depth", "slope")
 ef.plot <- effectPlotData(preds, test_model_b)
 head(ef.plot)
 dev.off()
@@ -493,7 +493,7 @@ A_model <- species_mix(
 
 
 ## Check model fit ----
-BIC(A_model) # this gives a valie of BIC
+BIC(A_model) # this gives a value of BIC
 print(A_model)
 A_model$coefs
 A_model$alpha
@@ -515,32 +515,19 @@ head(arch_prob)
 names(arch_prob)
 head(sp.names.no)
 
-arch <- cbind(arch_prob, sp.names.no)
-head(arch)
+arches <- cbind(arch_prob, sp.names.no)
+head(arches)
 
 # Get archetype with maximum probability for each sp --
-arch2 <- arch_prob %>%
-  tibble::rownames_to_column() %>% # 1. add row ids as a column
-  gather(column, value, -rowname) %>%
-  dplyr::group_by(rowname) %>%
-  dplyr::filter(rank(-value) == 1) %>%
-  glimpse()
-
-head(arch2)
-str(arch2)
-arch2 <- as.data.frame(arch2)
-names(arch2) <- c('new.names', 'archetype', 'prob')
-
-arch3 <- arch2 %>%
-  dplyr::left_join(sp.names.no) %>%
-  dplyr::mutate_at(vars(archetype), list(as.factor)) %>%
-  glimpse()
-
-str(arch3)
-summary(arch3)
+for(i in 1:nrow(arches)){
+  arches$arch[i] <- colnames(arches)[which.max(arches[i, 1:ncol(arch_prob)])]   # takes column name with maximum probability
+  arches$p[i]    <- max(arches[i, 1:ncol(arch_prob)])                           # takes maximum probability value
+}
+head(arches)
+ggplot(data = arch, aes(p_arch)) + geom_bar()                                   # check all archetypes have >1 member
 
 # to save this list --
-#write.csv(arch3, paste(o.dir, "species_archetypes.csv", sep ='/'))
+#write.csv(arches, paste(o.dir, "species_archetypes.csv", sep ='/'))
 
 
 
@@ -618,7 +605,7 @@ names(d) <- n[,2]
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
-d2 <- stack(d$depth, d$slope)
+d2 <- stack(d$depth * -1, d$slope)
 plot(d2)
 
 plot(d$depth)
@@ -645,14 +632,14 @@ ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  #newdata=d3[,c(3:4)],
+  newdata=d3[,c(3:4)],
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
 )
 
 plot(ptest2)
-#plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
+plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
 class(ptest2)
 str(ptest2)
 head(ptest2)
