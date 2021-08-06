@@ -217,259 +217,18 @@ str(allmat)                                                                     
 
 ## Check correlation among covariates ---
 
-# compute correlation matrix --
-cormat <- cor(cov_m[,c(2:10)], use = 'complete.obs')
-head(round(cormat,2)) 
-
-# correlogram : visualizing the correlation matrix --
-# http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram#
-#Positive correlations are displayed in blue and negative correlations in red color. 
-#Color intensity and the size of the circle are proportional to the correlation coefficients
-corrplot(cormat, method="number", type = "upper")
-
-# adding function to compute the p-value of correlations --
-# mat : is a matrix of data
-# ... : further arguments to pass to the native R cor.test function
-cor.mtest <- function(mat, ...) {
-  mat <- as.matrix(mat)
-  n <- ncol(mat)
-  p.mat<- matrix(NA, n, n)
-  diag(p.mat) <- 0
-  for (i in 1:(n - 1)) {
-    for (j in (i + 1):n) {
-      tmp <- cor.test(mat[, i], mat[, j], ...)
-      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
-    }
-  }
-  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
-  p.mat
-}
-# matrix of the p-value of the correlation
-p.mat <- cor.mtest(cov_m[ , 2:10])
-head(p.mat[ , 1:9])
-
-# customize correlogram --
-col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot(cormat, method="color", col=col(100),  
-         type="upper", order="hclust", 
-         addCoef.col = "black", # Add coefficient of correlation
-         tl.col="black", tl.srt=45, #Text label color and rotation
-         # Combine with significance
-         p.mat = p.mat, sig.level = 0.01, insig = "blank", 
-         # hide correlation coefficient on the principal diagonal
-         diag=FALSE 
-)
-
-
-# define function mosthighlycorrelated --
-# https://little-book-of-r-for-multivariate-analysis.readthedocs.io/en/latest/src/multivariateanalysis.html
-
-# linear correlation coefficients for each pair of variables in your data set, 
-# in order of the correlation coefficient. This lets you see very easily which pair of variables are most highly correlated.
-
-mosthighlycorrelated <- function(mydataframe,numtoreport)
-{
-  # find the correlations
-  cormatrix <- cor(mydataframe, use = 'complete.obs')
-  # set the correlations on the diagonal or lower triangle to zero,
-  # so they will not be reported as the highest ones:
-  diag(cormatrix) <- 0
-  cormatrix[lower.tri(cormatrix)] <- 0
-  # flatten the matrix into a dataframe for easy sorting
-  fm <- as.data.frame(as.table(cormatrix))
-  # assign human-friendly names
-  names(fm) <- c("First.Variable", "Second.Variable","Correlation")
-  # sort and print the top n correlations
-  head(fm[order(abs(fm$Correlation),decreasing=T),],n=numtoreport)
-}
-
-
-mosthighlycorrelated(cov_m[ , c(2:10)], 10) # only depth, rough and slope 4 not being correlated above 0.95
-
-
-
-# 5. Optimize number of archetypes ----
-# Fit species mix model using different number of archetypes and checking BIC --
-sam_form_full <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49), 
-                                                         collapse = ','),
-                                          ") ~ poly(depth, 2) + 
-                                          poly(slope, 2)"))                  # raw = T will stop you from using orthogonal polynomials, which are not working yet
-sp_form <- ~1
-
-test_model <- species_mix(
-  archetype_formula = sam_form_full,
-  species_formula = sp_form, #stats::as.formula(~1),
-  all_formula = NULL,
-  data=allmat,
-  nArchetypes = 7,
-  family = "negative.binomial",
-  #offset = NULL,
-  #weights = NULL,
-  #bb_weights = NULL,
-  #size = NULL, # for presence absence - benthic point data
-  #power = NULL, # for tweedie : eg. biomass data
-  #control = list(), # for tuning the model if needed
-  #inits = NULL, # if you have fitted the model previously: use the same values
-  #standardise = FALSE, # has been removed in new update it scales
-  #titbits = TRUE # could turn this off
-)
-
-
-BIC(test_model) # this gives a value of BIC
-AIC(test_model)
-print(test_model)
-
-
-# look at the partial response of each covariate using:
-par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth", "slope"), mod = test_model)
-#eff.df <- effectPlotData(focal.predictors = c("bathy"), mod = test_model)
-plot(x = eff.df, object = test_model, na.rm = T)
-
-
-# Probability of each sp. belonging to each archetype ----
-arch_prob <- as.data.frame(test_model$tau)
-head(arch_prob)
-names(arch_prob)
-head(sp.names.no)
-
-arch <- cbind(arch_prob, sp.names.no)
-head(arch)
-
-# Get archetype with maximum probability for each sp --
-arch2 <- arch_prob %>%
-  tibble::rownames_to_column() %>% # 1. add row ids as a column
-  gather(column, value, -rowname) %>%
-  dplyr::group_by(rowname) %>%
-  dplyr::filter(rank(-value) == 1) %>%
-  glimpse()
-
-head(arch2)
-str(arch2)
-arch2 <- as.data.frame(arch2)
-names(arch2) <- c('new.names', 'archetype', 'prob')
-
-colnames(sp.names.no)[2] <- c("new.names")
-
-arch3 <- arch2 %>%
-  dplyr::left_join(sp.names.no) %>%
-  dplyr::mutate_at(vars(archetype), list(as.factor)) %>%
-  glimpse()
-
-str(arch3)
-summary(arch3)
-
-
-
-
-## 6. Optimize number of covariates ----
-# now that you know the no. of archetypes, start removing convariates and test AIC to find the most parismonious model--
-
-# remove one covariate at a time ----
-init_method='kmeans' 
-
-sam_form_b <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49),
-                                                      collapse = ','),
-                                       ") ~ poly(depth, 2) + poly(slope, 2)"))   # raw = T will stop you from using orthogonal polynomials, which are not working yet
-
-
-sp_form <- ~1
-
-test_model_b <- species_mix(
-  archetype_formula = sam_form_b,
-  #poly(slope, degree = 2, raw = TRUE) + poly(tpi, degree = 2, raw = TRUE) + poly(aspect, degree = 2, raw = TRUE) +
-  #poly(temp_mean, degree = 2, raw = TRUE) + poly(temp_trend, degree = 2, raw = TRUE)),
-  species_formula = sp_form, #stats::as.formula(~1),
-  all_formula = NULL,
-  data=allmat,
-  nArchetypes = 7,
-  family = "negative.binomial",
-  #offset = NULL,
-  #weights = NULL,
-  #bb_weights = NULL,
-  #size = NULL, # for presence absence - benthic point data
-  #power = NULL, # for tweedie : eg. biomass data
-  control = list(init_method="kmeans") # for tuning the model if needed
-  #inits = NULL, # if you have fitted the model previously: use the same values
-  #standardise = FALSE, # has been removed in new update it scales
-  #titbits = TRUE # could turn this off
-)
-
-
-BIC(test_model_b) # this gives a value of BIC
-AIC(test_model_b)
-print(test_model_b)
-
-# look at the partial response of each covariate using:
-dev.off()
-plot(test_model_b)
-par(mfrow=c(2,3))
-eff.df <- effectPlotData(focal.predictors = c("depth","slope"), mod = test_model_b)
-#eff.df <- effectPlotData(focal.predictors = c("bathy"), mod = test_model)
-plot(x = eff.df, object = test_model_b, na.rm = T)
-
-
-## better response plot --
-sp.boot <- species_mix.bootstrap(
-  test_model_b,
-  nboot = 100,
-  type = "BayesBoot",
-  mc.cores = 10,
-  quiet = FALSE
-)
-
-apreds <- c("depth", "slope")
-ef.plot <- effectPlotData(preds, test_model_b)
-head(ef.plot)
-dev.off()
-par(mfrow=c(2,3))
-plot(ef.plot,
-     test_model_b, 
-     sp.boot,
-)
-
-
-# Probability of each sp. belonging to each archetype ----
-arch_prob <- as.data.frame(test_model_b$tau)
-head(arch_prob)
-names(arch_prob)
-head(sp.names.no)
-
-arch <- cbind(arch_prob, sp.names.no)
-head(arch)
-
-# Get archetype with maximum probability for each sp --
-arch2 <- arch_prob %>%
-  tibble::rownames_to_column() %>% # 1. add row ids as a column
-  gather(column, value, -rowname) %>%
-  dplyr::group_by(rowname) %>%
-  dplyr::filter(rank(-value) == 1) %>%
-  glimpse()
-
-head(arch2)
-str(arch2)
-arch2 <- as.data.frame(arch2)
-names(arch2) <- c('new.names', 'archetype', 'prob')
-
-arch3 <- arch2 %>%
-  dplyr::left_join(sp.names.no) %>%
-  dplyr::mutate_at(vars(archetype), list(as.factor)) %>%
-  glimpse()
-
-str(arch3)
-summary(arch3)
-
-# to save this list --
-#write.csv(arch3, paste(o.dir, "species_archetypes_m5.csv", sep ='/'))
 
 
 # 7. Final model ----
 
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49),
                                                     collapse = ','),
-                                     ") ~ poly(depth, 2) +
+                                     ") ~ poly(depth, 2) + poly(aspect, 2) + poly(tpi, 2) +
+                                     poly(flowdir, 2) + poly(SSTtrend, 2) + poly(SSTmean, 2) +
                                      poly(slope, 2)"))
 
+
+sp_form <- ~1
 
 A_model <- species_mix(
   archetype_formula = sam_form,
@@ -478,7 +237,7 @@ A_model <- species_mix(
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 7,
+  nArchetypes = 6,
   family = "negative.binomial",
   #offset = NULL,
   #weights = NULL,
@@ -505,7 +264,7 @@ A_model$theta
 
 # look at the partial response of each covariate using:
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth","slope"), mod = A_model)
+eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect",  "flowdir", "SSTtrend", "SSTmean"), mod = A_model)
 plot(x = eff.df, object = A_model)
 
 
@@ -515,6 +274,8 @@ head(arch_prob)
 names(arch_prob)
 head(sp.names.no)
 
+arch <- cbind(arch_prob, sp.names.no)
+head(arch)
 arches <- cbind(arch_prob, sp.names.no)
 head(arches)
 
@@ -535,7 +296,7 @@ ggplot(data = arch, aes(p_arch)) + geom_bar()                                   
 
 plot(A_model)
 
-preds <- c("slope","depth")
+preds <- c("slope","depth", "aspect", "flowdir", "SSTtrend", "SSTmean")
 
 
 ef.plot <- effectPlotData(preds, A_model)
@@ -546,29 +307,29 @@ head(ef.plot)
 
 
 #sp.boot <- species_mix.bootstrap(
-  #A_model,
-  #nboot = 100,
-  #type = "BayesBoot",
-  #mc.cores = 2,
-  #quiet = FALSE
+#A_model,
+#nboot = 100,
+#type = "BayesBoot",
+#mc.cores = 2,
+#quiet = FALSE
 #)
 
 #saveRDS(sp.boot, paste(model.dir, "sp.boot.rds", sep ='/'))
 
 
 #plot(ef.plot,
-     #A_model, 
-     #sp.boot,
+#A_model, 
+#sp.boot,
 #)
 
 
 # still not sure what to use this for --
 #sp.var <- vcov(
- # A_model,
-  #sp.boot = sp.boot,
-  #method = "BayesBoot",
-  #nboot = 10,
-  #mc.cores = 2
+# A_model,
+#sp.boot = sp.boot,
+#method = "BayesBoot",
+#nboot = 10,
+#mc.cores = 2
 #)
 
 
@@ -605,25 +366,62 @@ names(d) <- n[,2]
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
-d2 <- stack(d$depth * -1, d$slope)                                              # make depth positive (matching the conversion we did before modelling)
+d2 <- stack(d$depth * -1, d$slope, d$aspect, d$flowdir)   
+
+# make depth positive (matching the conversion we did before modelling)
 plot(d2)
 
-plot(d$depth)
+plot(d2$depth)
+
 #e <- drawExtent()
-e <- extent(114.7212, 114.9377, -34.13335, -34.12439)
+###e <- extent(114.7212, 114.9377, -34.13335, -34.12439)
 
-d2.2 <- crop(d2, e)
-plot(d2.2)
+###d2.2 <- crop(d2, e)
+###plot(d2.2)
 
-d3 <- as.data.frame(d2.2, xy = TRUE)
+###d3 <- as.data.frame(d2.2, xy = TRUE)
+
+# temp --
+t1 <- raster(paste(r.dir, "SSTmean_SSTARRS.tif", sep='/'))
+t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
+
+t <- stack(t1, t2)
+
+t2 <- disaggregate(t, 7.924524)
+t3 <- resample(t2, d2)
+
+plot(t3)
+plot(t2)
+
+
+# crop bathy to stack --
+#t2 <- crop(t, b)
+#d <- mask(d, b2)
+#plot(d)
+
+# stack preds --
+preds <- stack(d2, t3)
+names(preds)
+plot(preds)
+plot(d)
+
+
+d3 <- as.data.frame(preds, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'depth', 'slope')
+names(d3) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'SSTmean', 'SSTtrend')
 str(d3)
 any(is.na(d3$slope))
 length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
+
+any(is.na(d3$SSTmean))
+length(which(is.na(d3$SSTmean)))
+d3 <- na.omit(d3)
+str(d3)
+
+
 
 #memory.size(30000)
 
@@ -632,7 +430,7 @@ ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  newdata=d3[,c(3:4)],
+  newdata=d3[,c(3:8)],
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
@@ -676,13 +474,22 @@ plot(Allpreds)
 
 ##########################################################
 
+
+#Temp 
+
+ders <- stack(b,s,a,r,t,f)
+names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  , "flowdir")
+
+
+
+
 # PREDICT using test model ----
 
 
-sp.boot <- species_mix.bootstrap(
-  test_model,
-  nboot = 100,
-  type = "BayesBoot",
+#sp.boot <- species_mix.bootstrap(
+ # test_model,
+  #nboot = 100,
+  #type = "BayesBoot",
   mc.cores = 10,
   quiet = FALSE
 )
@@ -734,7 +541,7 @@ t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
 t <- stack(t1, t2)
 
 t2 <- disaggregate(t, 7.924524)
-t3 <- resample(t2, ds)
+t3 <- resample(t2, d)
 
 plot(t3)
 
@@ -745,9 +552,10 @@ plot(t3)
 #plot(d)
 
 # stack preds --
-preds <- stack(ds, t3)
+preds <- stack(d, t3)
 names(preds)
 plot(preds)
+plot(d)
 
 
 pr <- as.data.frame(preds, xy = TRUE)
