@@ -1,18 +1,17 @@
 
-w.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+# Hayley's beautiful predict script - 7 covariates / 5 archetypes - enjoy!
 
+w.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+r.dir <- paste(w.dir, "SAMs/rasters", sep='/')
 model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
+
 A_model_7_5 <- readRDS(paste(model.dir, "A_model_7_5.rds", sep='/'))
 A_model_7_5
 
 #covariates <- readRDS(paste(model.dir, "covariates.rds", sep='/'))
 
 # load predictors --
-
-# bathy --
 b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
-
-# derivatives --
 d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 n
@@ -33,16 +32,14 @@ t3 <- resample(t2, d2)
 preds <- stack(d2, t3)
 names(preds)
 
-
 covariates <- as.data.frame(preds, xy = TRUE) 
-dim(covariates)
-head(covariates)
+#dim(covariates)
+#head(covariates)
 names(covariates) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'tpi', 'SSTmean', 'SSTtrend')
 str(covariates)
 any(is.na(covariates$slope))
 length(which(is.na(covariates$slope)))
 covariates <- na.omit(covariates)
-str(covariates)
 
 
 # predict ##
@@ -95,3 +92,8 @@ plot(A2preds)
 plot(A3preds)
 plot(A4preds)
 plot(A5preds)
+
+#Response models 
+par(mfrow=c(2,2))
+eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean"), mod = A_model_7_5)
+plot(x = eff.df, object = A_model_7_5)
