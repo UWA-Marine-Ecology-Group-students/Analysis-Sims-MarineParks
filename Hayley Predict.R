@@ -5,7 +5,45 @@ model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
 A_model_7_5 <- readRDS(paste(model.dir, "A_model_7_5.rds", sep='/'))
 A_model_7_5
 
-covariates <- readRDS(paste(model.dir, "covariates.rds", sep='/'))
+#covariates <- readRDS(paste(model.dir, "covariates.rds", sep='/'))
+
+# load predictors --
+
+# bathy --
+b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
+
+# derivatives --
+d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
+n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
+n
+names(d) <- n[,2]
+
+d2 <- stack(d$depth * -1, d$slope, d$aspect, d$flowdir, d$tpi)   
+
+# temp --
+t1 <- raster(paste(r.dir, "SSTmean_SSTARRS.tif", sep='/'))
+t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
+
+t <- stack(t1, t2)
+t2 <- disaggregate(t, 7.924524) #not sure what this number is? Hayley 
+t3 <- resample(t2, d2)
+
+
+# stack preds --
+preds <- stack(d2, t3)
+names(preds)
+
+
+covariates <- as.data.frame(preds, xy = TRUE) 
+dim(covariates)
+head(covariates)
+names(covariates) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'tpi', 'SSTmean', 'SSTtrend')
+str(covariates)
+any(is.na(covariates$slope))
+length(which(is.na(covariates$slope)))
+covariates <- na.omit(covariates)
+str(covariates)
+
 
 # predict ##
 ptest2 <- predict(
@@ -18,10 +56,10 @@ ptest2 <- predict(
   prediction.type = "archetype"
 )
 
-plot(ptest2)
-class(ptest2)
-str(ptest2)
-head(ptest2)
+#plot(ptest2)
+#class(ptest2)
+#str(ptest2)
+#head(ptest2)
 
 Apreds <- ptest2
 head(Apreds)
