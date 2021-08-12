@@ -101,7 +101,8 @@ coordinates(dfs) <- ~longitude+latitude
 plot(b) 
 plot(dfs, pch = 20, cex = 1, add=T) 
 
-
+b[b>-35] <-NA
+plot(b)
 
 # Load  derivatives ----
 bds <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/')) #changed to "Multibeam_derivatives.tif"
@@ -118,8 +119,6 @@ str(dfs)
 head(dfs)
 
 
-
-## so far just using bathy covariates ##
 
 # save maxn with covariates ----
 write.csv(dfs, paste(dt.dir, "2020_sw_maxn.env-cov.csv", sep='/'))
@@ -175,7 +174,7 @@ head(df)
 # 2. Remove sp that are encountered in less than a defined threshold percentage of samples ----
 # as per Foster et al 2015 ----
 tot_bruv  <- length(levels(df$sample))
-min_bruv  <- round(tot_bruv * 0.05)
+min_bruv  <- round(tot_bruv * 0.025)
 min_bruv                                                                        # threshold number of samples
 
 # sort out which species occur less/more than threshold
@@ -201,7 +200,7 @@ colnames(cov_m) <- c("sample"  ,"depth",  "slope"  ,  "aspect", "roughness",
                      "SSTtrend", "logdepth")     
 summary(cov_m)                                                                  # remove sstster, as it's all one value
 cov_m         <- cov_m[ , -9]
-cov_m$depth   <- cov_m$depth * -1                                               # ecomix doesn't seem to like negatives?
+#cov_m$depth   <- cov_m$depth * -1                                               # ecomix doesn't seem to like negatives?
 cov_m$flowdir <- as.numeric(cov_m$flowdir)
 cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
 cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                                # make observations numeric
@@ -221,7 +220,7 @@ str(allmat)                                                                     
 
 # 7. Final model ----
 
-sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:49),
+sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:71),
                                                     collapse = ','),
                                      ") ~ poly(depth, 2) + poly(aspect, 2) + poly(tpi, 2) +
                                      poly(flowdir, 2) + poly(SSTtrend, 2) + poly(SSTmean, 2) +
@@ -237,7 +236,7 @@ A_model <- species_mix(
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 6,
+  nArchetypes = 5,
   family = "negative.binomial",
   #offset = NULL,
   #weights = NULL,
@@ -264,7 +263,7 @@ A_model$theta
 
 # look at the partial response of each covariate using:
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect",  "flowdir", "SSTtrend", "SSTmean"), mod = A_model)
+eff.df <- effectPlotData(focal.predictors = c("depth","aspect", "tpi", "flowdir", "SSTtrend", "SSTmean", "slope"), mod = A_model)
 plot(x = eff.df, object = A_model)
 
 
@@ -287,6 +286,40 @@ for(i in 1:nrow(arches)){
 head(arches)
 ggplot(data = arch, aes(p_arch)) + geom_bar()                                   # check all archetypes have >1 member
 
+
+# Probability of each sp. belonging to each archetype ----
+arch_prob <- as.data.frame(A_model$tau)
+head(arch_prob)
+names(arch_prob)
+head(sp.names.no)
+
+arch <- cbind(arch_prob, sp.names.no)
+head(arch)
+
+# Get archetype with maximum probability for each sp --
+arch2 <- arch_prob %>%
+  tibble::rownames_to_column() %>% # 1. add row ids as a column
+  gather(column, value, -rowname) %>%
+  dplyr::group_by(rowname) %>%
+  dplyr::filter(rank(-value) == 1) %>%
+  glimpse()
+
+head(arch2)
+str(arch2)
+arch2 <- as.data.frame(arch2)
+names(arch2) <- c('new.names', 'archetype', 'prob')
+
+colnames(sp.names.no)[2] <- c("new.names")
+
+arch3 <- arch2 %>%
+  dplyr::left_join(sp.names.no) %>%
+  dplyr::mutate_at(vars(archetype), list(as.factor)) %>%
+  glimpse()
+
+str(arch3)
+summary(arch3)
+
+
 # to save this list --
 #write.csv(arches, paste(o.dir, "species_archetypes.csv", sep ='/'))
 
@@ -296,7 +329,7 @@ ggplot(data = arch, aes(p_arch)) + geom_bar()                                   
 
 plot(A_model)
 
-preds <- c("slope","depth", "aspect", "flowdir", "SSTtrend", "SSTmean")
+preds <- c("slope","depth", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean")
 
 
 ef.plot <- effectPlotData(preds, A_model)
@@ -366,12 +399,11 @@ names(d) <- n[,2]
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
-d2 <- stack(d$depth * -1, d$slope, d$aspect, d$flowdir)   
+d2 <- stack(d$depth, d$slope, d$aspect, d$flowdir, d$tpi)    
 
 # make depth positive (matching the conversion we did before modelling)
-plot(d2)
-
-plot(d2$depth)
+#plot(d2)
+#plot(d2$depth)
 
 #e <- drawExtent()
 ###e <- extent(114.7212, 114.9377, -34.13335, -34.12439)
@@ -390,8 +422,8 @@ t <- stack(t1, t2)
 t2 <- disaggregate(t, 7.924524)
 t3 <- resample(t2, d2)
 
-plot(t3)
-plot(t2)
+#plot(t3)
+#plot(t2)
 
 
 # crop bathy to stack --
@@ -409,555 +441,70 @@ plot(d)
 d3 <- as.data.frame(preds, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'SSTmean', 'SSTtrend')
+names(d3) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'tpi', 'SSTmean', 'SSTtrend')
 str(d3)
+
 any(is.na(d3$slope))
 length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
-any(is.na(d3$SSTmean))
-length(which(is.na(d3$SSTmean)))
-d3 <- na.omit(d3)
-str(d3)
-
-
-
-#memory.size(30000)
 
 # predict ##
 ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  newdata=d3[,c(3:8)],
+  newdata=d3[,c(3:9)],
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
 )
 
-plot(ptest2)
+
 plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
-class(ptest2)
-str(ptest2)
-head(ptest2)
-#ptest2$ptPreds
 
 Apreds <- ptest2
 head(Apreds)
 
-#d3.1<- d3[ , c(2, 27:36)]
-
 SAMpreds <- cbind(d3, Apreds)
 head(SAMpreds)
-
-
-coordinates(SAMpreds) <- ~x+y
-A1 <- SAMpreds[,3]
-A2 <- SAMpreds[,4]
-A3 <- SAMpreds[,5]
-A4 <- SAMpreds[,6]
-
-gridded(A1) <- TRUE
-gridded(A2) <- TRUE
-gridded(A3) <- TRUE
-gridded(A4) <- TRUE
-
-A1preds <- raster(A1)
-A2preds <- raster(A2)
-A3preds <- raster(A3)
-A4preds <- raster(A4)
-
-Allpreds <- stack(A1preds, A2preds, A3preds, A4preds)
-plot(Allpreds)
-
-
-##########################################################
-
-
-#Temp 
-
-ders <- stack(b,s,a,r,t,f)
-names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  , "flowdir")
-
-
-
-
-# PREDICT using test model ----
-
-
-#sp.boot <- species_mix.bootstrap(
- # test_model,
-  #nboot = 100,
-  #type = "BayesBoot",
-  mc.cores = 10,
-  quiet = FALSE
-)
-
-
-
-
-# load predictors --
-
-# bathy --
-b <- stack(paste(r.dir, "SW_bathy.derivatives-to-260m.tif", sep='/'))
-plot(b)
-names(b)
-nam <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
-names(b) <- nam$x
-
-d<- dropLayer(b, c(2:6))
-d
-plot(d)
-e <- drawExtent()
-d <- crop(d, e)
-
-# cut to 150 m depth --
-values(d)[values(d) < -150] = NA
-values(d)[values(d) > -30] = NA
-#b[b < -150] <- NA
-#b[b > -30] <- NA
-
-s <- crop(b$slope, d)
-s <- mask(s, d)
-
-a <- crop(b$aspect, d)
-a <- mask(a, d)
-
-t  <- crop(b$tpi, d)
-t <- mask(t, d)
-
-f <- crop(b$flowdir, d)
-f <- mask(f, d)
-
-ds <- stack(d,s,a,t,f)
-plot(ds)
-
-
-# temp --
-t1 <- raster(paste(r.dir, "SSTsterr_SSTARRS.tif", sep='/'))
-t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
-
-t <- stack(t1, t2)
-
-t2 <- disaggregate(t, 7.924524)
-t3 <- resample(t2, d)
-
-plot(t3)
-
-
-# crop bathy to stack --
-#t2 <- crop(t, b)
-#d <- mask(d, b2)
-#plot(d)
-
-# stack preds --
-preds <- stack(d, t3)
-names(preds)
-plot(preds)
-plot(d)
-
-
-pr <- as.data.frame(preds, xy = TRUE)
-dim(pr)
-head(pr)
-names(pr) <- c('x', 'y', 'depth', 'slope', 'aspect', 'tpi',  'flowdir', 'SSTster', 'SSTtrend')
-str(pr)
-any(is.na(pr$slope))
-length(which(is.na(pr$slope)))
-pr <- na.omit(pr)
-str(pr)
-head(pr)
-
-
-# predict ##
-ptest2 <- predict(
-  test_model,
-  sp.boot,
-  #nboot = 100,
-  pr[,c(3:9)],
-  #alpha = 0.95,
-  mc.cores = 10,
-  prediction.type = "archetype"
-)
-
-
-class(ptest2)
-str(ptest2$ptPreds)
-head(ptest2$ptPreds)
-ptest2$ptPreds
-
-Apreds <- ptest2$ptPreds
-head(Apreds)
-
-SAMpreds <- cbind(pr, Apreds)
-head(SAMpreds)
-
 
 coordinates(SAMpreds) <- ~x+y
 A1 <- SAMpreds[,8]
 A2 <- SAMpreds[,9]
 A3 <- SAMpreds[,10]
-#A4 <- SAMpreds[,7]
-
-gridded(A1) <- TRUE
-gridded(A2) <- TRUE
-gridded(A3) <- TRUE
-#gridded(A4) <- TRUE
-
-A1preds <- raster(A1)
-A2preds <- raster(A2)
-A3preds <- raster(A3)
-#A4preds <- raster(A4)
-
-Allpreds <- stack(A1preds, A2preds, A3preds)
-plot(Allpreds)
-
-writeRaster(Allpreds, paste(o.dir, "pred-3a-7cov.tif", sep='/'))
-
-
-
-# PREDICT using test model b ----
-
-
-sp.boot <- species_mix.bootstrap(
-  test_model_b,
-  nboot = 100,
-  type = "BayesBoot",
-  mc.cores = 10,
-  quiet = FALSE
-)
-
-# vairance -- Still not sure how to do this an the summary
-sp.var <- vcov(
-  test_model_b,
-  object2 = NULL,
-  method = "BayesBoot",
-  nboot = 10,
-  mc.cores = 10
-)
-
-
-summary.species_mix(test_model_b, sp.var)
-
-# load predictors --
-
-# bathy --
-b <- stack(paste(r.dir, "SW_bathy.derivatives-to-260m.tif", sep='/'))
-plot(b)
-names(b)
-nam <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
-names(b) <- nam$x
-
-d<- dropLayer(b, c(2:6))
-d
-plot(d)
-e <- extent(114.4438, 115.0793, -34.28812, -33.58538)
-d <- crop(d, e)
-plot(d)
-
-# cut to 150 m depth --
-values(d)[values(d) < -143] = NA
-values(d)[values(d) > -35] = NA
-#b[b < -150] <- NA
-#b[b > -30] <- NA
-
-s <- crop(b$slope, d)
-s <- mask(s, d)
-
-a <- crop(b$aspect, d)
-a <- mask(a, d)
-
-t  <- crop(b$tpi, d)
-t <- mask(t, d)
-
-f <- crop(b$flowdir, d)
-f <- mask(f, d)
-
-ds <- stack(d,a,f,s)
-plot(ds)
-
-
-# temp --
-t1 <- raster(paste(r.dir, "SSTsterr_SSTARRS.tif", sep='/'))
-t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
-
-tx <- stack(t1, t2)
-plot(tx)
-
-ta <- disaggregate(t1, 7.924524)
-tb <- disaggregate(t2, 7.924524)
-ta <- resample(ta, ds)
-plot(ta)
-
-tb <- resample(tb, ds)
-plot(tb)
-
-t <- stack(ta, tb)
-
-
-# crop bathy to stack --
-#t2 <- crop(t, b)
-#d <- mask(d, b2)
-#plot(d)
-
-# stack preds --
-preds <- stack(ds, t)
-names(preds)
-plot(preds)
-
-
-pr <- as.data.frame(preds, xy = TRUE)
-dim(pr)
-head(pr)
-names(pr) <- c('x', 'y', 'depth','aspect', 'slope', 'flowdir', 'SSTster', 'SSTtrend')
-str(pr)
-any(is.na(pr$slope))
-length(which(is.na(pr$slope)))
-pr <- na.omit(pr)
-str(pr)
-head(pr)
-
-
-# predict ##
-ptest2 <- predict(
-  test_model_b,
-  sp.boot,
-  #nboot = 100,
-  pr[,c(3:8)],
-  #alpha = 0.95,
-  mc.cores = 10,
-  prediction.type = "archetype"
-)
-
-
-class(ptest2)
-str(ptest2$ptPreds)
-head(ptest2$ptPreds)
-ptest2$ptPreds
-
-Apreds <- ptest2$ptPreds
-head(Apreds)
-
-SAMpreds <- cbind(pr, Apreds)
-head(SAMpreds)
-
-
-coordinates(SAMpreds) <- ~x+y
-head(SAMpreds)
-A1 <- SAMpreds[,7]
-A2 <- SAMpreds[,8]
-A3 <- SAMpreds[,9]
-#A4 <- SAMpreds[,7]
-
-gridded(A1) <- TRUE
-gridded(A2) <- TRUE
-gridded(A3) <- TRUE
-#gridded(A4) <- TRUE
-
-A1preds <- raster(A1)
-A2preds <- raster(A2)
-A3preds <- raster(A3)
-#A4preds <- raster(A4)
-
-Allpreds <- stack(A1preds, A2preds, A3preds)
-plot(Allpreds)
-
-writeRaster(Allpreds, paste(o.dir, "Ecomix5.tif", sep='/'), overwrite =T)
-
-test <- log(Allpreds)
-plot(test)
-
-
-
-# PREDICT USING STAND COVS ----
-
-## Standarize the covariates --
-d3.stand <- BBmisc::normalize(d3[,c(3:5)], method = "standardize", range = c(0,1))
-colnames(d3.stand) <- colnames(d3[,c(3:5)])
-dim(d3.stand)
-head(d3.stand)
-
-
-ptest2 <- predict(
-  A_model,
-  sp.boot,
-  d3.stand,
-  prediction.type = "archetype"
-)
-
-class(ptest2)
-str(ptest2$ptPreds)
-head(ptest2$ptPreds)
-
-Bpreds <- ptest2$ptPreds
-head(Bpreds)
-
-SAMpreds <- cbind(d3, Bpreds)
-head(SAMpreds)
-
-
-coordinates(SAMpreds) <- ~x+y
-A1 <- SAMpreds[,4]
-A2 <- SAMpreds[,5]
-A3 <- SAMpreds[,6]
-A4 <- SAMpreds[,7]
+A4 <- SAMpreds[,11]
+A5 <- SAMpreds[,12]
 
 gridded(A1) <- TRUE
 gridded(A2) <- TRUE
 gridded(A3) <- TRUE
 gridded(A4) <- TRUE
+gridded(A5) <- TRUE
 
 A1preds <- raster(A1)
 A2preds <- raster(A2)
 A3preds <- raster(A3)
 A4preds <- raster(A4)
+A5preds <- raster(A5)
 
-AllpredsB <- stack(A1preds, A2preds, A3preds, A4preds)
-plot(AllpredsB)
+Allpreds <- stack(A1preds, A2preds, A3preds, A4preds, A5preds)
+plot(Allpreds)
 
-#####################
-p1 <- stack(paste(o.dir, "pred-3a-5cov-notpiaspect.tif", sep='/'))
-p2 <- stack(paste(o.dir, "pred-3a-6cov-notpi.tif", sep='/'))
-p3 <- stack(paste(o.dir, "pred-3a-7cov.tif", sep='/'))
-p4 <- stack(paste(o.dir, "pred-3a-notpiSSTtrend.tif", sep='/'))
+plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
+plot(A1preds)
+plot(A2preds)
+plot(A3preds)
+plot(A4preds)
+plot(A5preds)
 
-plot(p4)
-names(p4) <- c("Archetype1",  "Archetype2", "Archetype3")
-
-# define breaks manually
-breaks1 <- c(-Inf, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 1000, Inf)
-p <- levelplot(Allpreds, par.settings=RdBuTheme(), at=breaks1, 
-               colorkey=list(height=0.8, labels=list(at=breaks1, labels=round(breaks1, 2))))
-
-
-
-p
-
-
-## FOR MAPS ####
-
-ab <- readOGR(paste(s.dir, "Australiaboundary67.shp", sep='/'))
-
-amp <- readOGR(paste(s.dir, "AustraliaNetworkMarineParks.shp", sep='/'))
-
-wamp <- readOGR(paste(s.dir, "All_StateReserves.shp", sep='/'))
-
-plot(test$Archetype3, main = "Archetype 3")
-plot(ab, add=T)
-plot(amp, add=T)
-plot(wamp, add=T)
-
-dev.off()
-
-p     
-
-
-## Get quantiles ----
-A1 <- A1preds
-A2 <- A2preds
-A3 <- A3preds
-
-A1[A1>5000] <- 5000
-plot(A1)
-
-A2[A2>5000] <- 5000
-plot(A2)
-
-A3[A3>1000] <- 1000
-plot(A3)
-
-plot(Allpreds$Archetype1)
-plot(Allpreds$Archetype2)
-plot(Allpreds$Archetype3)
-plot(test$Archetype1)
-ecomix.quant <- c(0,0.05,0.95,1)
-ecomix.cuts <- quantile(Allpreds$Archetype1, ecomix.quant)
-ecomix.cuts
-brk<- quantile(c(Allpreds$Archetype2))
-#catA1 <- cut(Allpreds$Archetype1, breaks=ecomix.cuts, na.rm=TRUE)
-#plot(catA1)
-plot(Allpreds$Archetype2)
-ahist<-hist(Allpreds$Archetype2,
-            breaks= 100,
-            main="Histogram Archetype 2",
-            col="blue",  # changes bin color
-            xlab= "Abundance")
-ahist
-breaks1 <- c(0,1,10,50,100,1000,Inf)
-breaks2 <- c(0, 1, 10, 50, 100, 1000, 5000, 38405.51)
-breaks2 <- c(0, 1, 10, 50, 100, 1000, 2500, 5000)
-p <- levelplot(Allpreds$Archetype2, par.settings=RdBuTheme(), at=breaks1, 
-               colorkey=list(height=0.8, labels=list(at=breaks1, labels=round(breaks1, 2))))
-
-
-
-p
-
-
-plot_crayons()
-yel <- brocolors("crayons")["Canary"]
-or <- brocolors("crayons")["Vivid Tangerine"]
-g0 <- brocolors("crayons")["Electric Lime"]
-g1 <- brocolors("crayons")["Screamin Green"]
-g2 <- brocolors("crayons")["Sea Green"]
-b1 <- brocolors("crayons")["Caribbean Green"]
-b2 <- brocolors("crayons")["Blue Green"]
-b3 <- brocolors("crayons")["Navy Blue"]
-b4 <- brocolors("crayons")["Violet Blue"]
-r1 <- brocolors("crayons")["Radical Red"]
-r2 <- brocolors("crayons")["Maroon"]
-
-#pal <- colorRampPalette(c("red","blue", "green"))
-pal <- colorRampPalette(c(yel, g0, g1, b1, g2, b2, b3, r1))
-
-plot(A2,
-     #Allpreds$Archetype2,
-     breaks = breaks2,
-     #col = terrain.colors(6),
-     col = pal(7),
-     main = "Archetype 2",
-     legend = FALSE)
-#r.range <- c(minValue(Allpreds$Archetype2), maxValue(Allpreds$Archetype2))
-#plot(Allpreds$Archetype2)
-plot(A2,
-     #Allpreds$Archetype2,
-     legend.only = TRUE,
-     #col = terrain.colors(6),
-     col = pal(7),
-     legend.width=1, legend.shrink=0.75,
-     axis.args = list(at = c(714, 1428, 2142, 2856, 3570, 4284, 5000), 
-                      labels = c('1','10','50','100','1000', '2500','5000')))
-#axis.args=list(at =  c(0, 1, 10, 50, 100, 1000, 5000, Inf)),
-#labels = breaks2), 
-#             cex.axis=0.6),
-#legend.args=list(text='Abundance', side=1, font=2, line=2.5, cex=0.8))
-
-dev.off()
-
-plot(ab, col = 'orange', alpha= 0.5, add=T)
-plot(amp, add=T)
-plot(wamp, add=T)
-
-## USING ggplot ----
-r = Allpreds$Archetype2 #raster object
-#preparing raster object to plot with geom_tile in ggplot2
-r_points = rasterToPoints(r)
-r_df = data.frame(r_points)
-head(r_df) #breaks will be set to column "layer"
-r_df$cuts=cut(r_df$Archetype2, breaks=c(1, 10, 50, 100, 1000, 5000, 39000)) #set breaks
-
-ggplot(data=r_df) + 
-  geom_tile(aes(x=x,y=y,fill=cuts)) + 
-  #scale_fill_brewer("Legend_title",type = "seq", palette = "Greys") +
-  scale_fill_manual("Abundance",  values = pal(7)) +
-  coord_equal() +
-  theme_bw() +
-  theme(panel.grid.major = element_blank()) +
-  xlab("Longitude") + ylab("Latitude")
+#Response models again
+par(mfrow=c(2,2))
+eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean"), mod = A_model)
+plot(x = eff.df, object = A_model)
 
 
 
 
-
-
+##########################################################
