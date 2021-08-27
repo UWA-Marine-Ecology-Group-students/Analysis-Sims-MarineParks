@@ -20,6 +20,7 @@ library(tibble)
 library(rasterVis)
 library(RColorBrewer)
 library(broman)
+library(scales)
 
 # clear workspace ----
 rm(list = ls())
@@ -56,6 +57,9 @@ ref.crs <- proj4string(ref)
 
 b <- projectRaster(b, crs = ref.crs)
 plot(b)
+
+b[b>-35] <-NA
+plot(b)
 proj4string(b) # check it worked
 
 
@@ -74,7 +78,8 @@ plot(f)
 ders <- stack(b,s,a,r,t,f)
 names(ders) <- c("depth", "slope",  "aspect" ,  "roughness"  ,   "tpi" ,   "flowdir")
 
-
+b[b>-35] <-NA
+plot(b)
 
 # save stack of derivatives
 writeRaster(ders, paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
@@ -203,10 +208,26 @@ cov_m         <- cov_m[ , -9]
 #cov_m$depth   <- cov_m$depth * -1                                               # ecomix doesn't seem to like negatives?
 cov_m$flowdir <- as.numeric(cov_m$flowdir)
 cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
-cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)                                # make observations numeric
+cov_m[, 2:9] <- sapply(cov_m[, 2:9], as.numeric)     
 
-# cov_ms <- scale(cov_m[, -1])                                                    # scale/standardise covariates (leave for now)
-allmat <- cbind(spw_m, cov_m)                                                   # join species and scaled covariates
+# make observations numeric
+
+#scale aspect 
+
+cov_ms <-(cov_m[4] - min(cov_m[4]))/(max(cov_m[4] - min(cov_m[4])))
+
+
+#address circularity 
+x <- cov_ms
+cov_msa1 <- (sin((2*pi)*(x/1))+cos((2*pi)*(x/1)))
+cov_msa <-cbind(cov_m[2:3])
+cov_msa2 <- cbind(cov_m[5:10])
+
+allmat <- cbind(spw_m, cov_msa1, cov_msa, cov_msa2)     
+
+
+
+allmat <- cbind(spw_m, cov_m)  # join species and scaled covariates
 str(allmat)                                                                     # checking form of each variable
 # allmat[ , c(2:28, 30:38)] <- sapply(allmat[, c(2:28, 30:38)], as.numeric)       # ecomix seems to need numeric
 
@@ -220,10 +241,12 @@ str(allmat)                                                                     
 
 # 7. Final model ----
 
+
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:71),
                                                     collapse = ','),
-                                     ") ~ poly(depth, 2) + poly(aspect, 2) + poly(tpi, 2) +
-                                     poly(flowdir, 2) + poly(SSTtrend, 2) + poly(SSTmean, 2) +
+                                     ") ~ poly(depth, 2) + poly(tpi, 2) +
+                                     poly(flowdir, 2) + 
+                                     poly(aspect, 2) +
                                      poly(slope, 2)"))
 
 
@@ -236,7 +259,7 @@ A_model <- species_mix(
   species_formula = sp_form, #stats::as.formula(~1),
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 5,
+  nArchetypes = 3,
   family = "negative.binomial",
   #offset = NULL,
   #weights = NULL,
@@ -263,7 +286,7 @@ A_model$theta
 
 # look at the partial response of each covariate using:
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth","aspect", "tpi", "flowdir", "SSTtrend", "SSTmean", "slope"), mod = A_model)
+eff.df <- effectPlotData(focal.predictors = c("depth","tpi","flowdir","aspect","slope"), mod = A_model)
 plot(x = eff.df, object = A_model)
 
 
@@ -327,13 +350,13 @@ summary(arch3)
 
 # 12. Plots ----
 
-plot(A_model)
+#plot(A_model)
 
-preds <- c("slope","depth", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean")
+#preds <- c("slope","depth", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean")
 
 
-ef.plot <- effectPlotData(preds, A_model)
-head(ef.plot)
+#ef.plot <- effectPlotData(preds, A_model)
+#head(ef.plot)
 
 #ef.plot$bathy
 #plot(ef.plot, A_model)
@@ -378,13 +401,13 @@ head(ef.plot)
 b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
 plot(b)
 # cut to 150 m depth --
-#b[b < -150] <- NA
-#b[b > -30] <- NA
+b[b < -150] <- NA
+b[b > -30] <- NA
 #plot(b)
 
 # derivatives --
 d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
-plot(d)
+#plot(d)
 names(d)
 n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 n
@@ -399,7 +422,10 @@ names(d) <- n[,2]
 # stack preds --
 #d2 <- stack(d$depth, d$slope)
 #plot(d2)
-d2 <- stack(d$depth, d$slope, d$aspect, d$flowdir, d$tpi)    
+d2 <- stack(d$depth, d$slope, d$flowdir, d$tpi, d$aspect)    
+
+#aggregate to 10 x 10
+aggregated.r <- raster::aggregate(d2, fact = 2.5, fun = sum)  
 
 # make depth positive (matching the conversion we did before modelling)
 #plot(d2)
@@ -414,13 +440,15 @@ d2 <- stack(d$depth, d$slope, d$aspect, d$flowdir, d$tpi)
 ###d3 <- as.data.frame(d2.2, xy = TRUE)
 
 # temp --
-t1 <- raster(paste(r.dir, "SSTmean_SSTARRS.tif", sep='/'))
-t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
+####t1 <- raster(paste(r.dir, "SSTmean_SSTARRS.tif", sep='/'))
+#t2 <- raster(paste(r.dir, "SSTtrend_SSTARRS.tif", sep='/'))
 
-t <- stack(t1, t2)
+#Here is some code to do that, if 'r' is your raster of 4x4 and you want to turn it into a 10x10:
 
-t2 <- disaggregate(t, 7.924524)
-t3 <- resample(t2, d2)
+#t <- stack(t1, t2)
+
+####t2 <- disaggregate(t1, 7.924524)
+####t3 <- resample(t2, d2)
 
 #plot(t3)
 #plot(t2)
@@ -432,16 +460,19 @@ t3 <- resample(t2, d2)
 #plot(d)
 
 # stack preds --
-preds <- stack(d2, t3)
+#preds <- 
+#preds <- stack(d2, t3)
+####preds <-d2
+preds <-aggregated.r
 names(preds)
 plot(preds)
-plot(d)
+#plot(d)
 
 
 d3 <- as.data.frame(preds, xy = TRUE)
 dim(d3)
 head(d3)
-names(d3) <- c('x', 'y', 'depth', 'slope', 'aspect', 'flowdir', 'tpi', 'SSTmean', 'SSTtrend')
+names(d3) <- c('x', 'y', 'depth', 'slope', 'tpi', 'aspect', 'flowdir')
 str(d3)
 
 any(is.na(d3$slope))
@@ -455,7 +486,7 @@ ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  newdata=d3[,c(3:9)],
+  newdata=d3[,c(3:7)],
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
@@ -463,36 +494,39 @@ ptest2 <- predict(
 
 
 plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
-
 Apreds <- ptest2
 head(Apreds)
 
 SAMpreds <- cbind(d3, Apreds)
 head(SAMpreds)
 
+
 coordinates(SAMpreds) <- ~x+y
-A1 <- SAMpreds[,8]
-A2 <- SAMpreds[,9]
-A3 <- SAMpreds[,10]
-A4 <- SAMpreds[,11]
-A5 <- SAMpreds[,12]
+A1 <- SAMpreds[,6]
+A2 <- SAMpreds[,7]
+A3 <- SAMpreds[,8]
+#A4 <- SAMpreds[,12]
+
 
 gridded(A1) <- TRUE
 gridded(A2) <- TRUE
 gridded(A3) <- TRUE
-gridded(A4) <- TRUE
-gridded(A5) <- TRUE
+#gridded(A4) <- TRUE
+
 
 A1preds <- raster(A1)
 A2preds <- raster(A2)
 A3preds <- raster(A3)
-A4preds <- raster(A4)
-A5preds <- raster(A5)
+#A4preds <- raster(A4)
 
-Allpreds <- stack(A1preds, A2preds, A3preds, A4preds, A5preds)
+
+Allpreds <- stack(A1preds, A2preds, A3preds)
 plot(Allpreds)
 
-plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
+Allpreds$Archetype3 <- Allpreds$Archetype3[Allpreds$Archetype3[] < 100]
+plot(Allpreds$Archetype3)
+
+#plot(rasterFromXYZ(cbind(d3[,1:2],ptest2)))
 plot(A1preds)
 plot(A2preds)
 plot(A3preds)
@@ -501,10 +535,35 @@ plot(A5preds)
 
 #Response models again
 par(mfrow=c(2,2))
-eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect", "tpi", "flowdir", "SSTtrend", "SSTmean"), mod = A_model)
+eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect", "tpi", "flowdir"), mod = A_model)
 plot(x = eff.df, object = A_model)
 
+
+d5 <- as.data.frame(Allpreds)
+hist(d5$Archetype3,  xlim=c(0,10))
+
+max(Allpreds$Archetype3)  
+min(d5$Archetype3)
+
+Allpreds$Archetype1 <- Allpreds$Archetype3[Allpreds$Archetype1[] < 100]
+plot(Allpreds$Archetype1)
 
 
 
 ##########################################################
+#circular variables 
+#scaling 
+
+
+
+#put into new column
+
+min(cov_m$aspect) #0.061594
+max(cov_m$aspect) #6.243858
+
+x <- (1:24)
+plot(sin((2*pi)*(x/24))+cos((2*pi)*(x/24)),xlab="Hours")
+
+
+
+
