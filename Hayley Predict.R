@@ -1,14 +1,16 @@
 
 # Hayley's beautiful predict script - 7 covariates / 5 archetypes - enjoy!
 
+library(raster)
+library(sp)
+
 w.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
 r.dir <- paste(w.dir, "SAMs/rasters", sep='/')
-model.dir <- "/homevol/anitasgiraldo2021/Analysis-Sims-MarineParks"
 
-A_model_7_5 <- readRDS(paste(model.dir, "A_model_7_5.rds", sep='/'))
+A_model_7_5 <- readRDS(paste(w.dir, "A_model_7_5.rds", sep='/'))
 A_model_7_5
 
-#covariates <- readRDS(paste(model.dir, "covariates.rds", sep='/'))
+#covariates <- readRDS(paste(w.dir, "covariates.rds", sep='/'))
 
 # load predictors --
 b <- raster(paste(r.dir, "SwC_Multibeam.tiff", sep='/'))
