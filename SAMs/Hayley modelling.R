@@ -244,8 +244,9 @@ str(allmat)                                                                     
 
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:71),
                                                     collapse = ','),
-                                     ") ~ poly(depth, 2) + poly(tpi, 2) +
-                                     poly(flowdir, 2) + 
+                                     ") ~ poly(depth, 2) +
+                                     poly(tpi, 2) + 
+                                     poly(flowdir, 2) +
                                      poly(aspect, 2) +
                                      poly(slope, 2)"))
 
@@ -425,7 +426,7 @@ names(d) <- n[,2]
 d2 <- stack(d$depth, d$slope, d$flowdir, d$tpi, d$aspect)    
 
 #aggregate to 10 x 10
-aggregated.r <- raster::aggregate(d2, fact = 2.5, fun = sum)  
+###aggregated.r <- raster::aggregate(d2, fact = 2.5, fun = sum)  
 
 # make depth positive (matching the conversion we did before modelling)
 #plot(d2)
@@ -462,8 +463,8 @@ aggregated.r <- raster::aggregate(d2, fact = 2.5, fun = sum)
 # stack preds --
 #preds <- 
 #preds <- stack(d2, t3)
-####preds <-d2
-preds <-aggregated.r
+preds <-d2
+###preds <-aggregated.r
 names(preds)
 plot(preds)
 #plot(d)
@@ -537,6 +538,16 @@ plot(A5preds)
 par(mfrow=c(2,2))
 eff.df <- effectPlotData(focal.predictors = c("depth","slope", "aspect", "tpi", "flowdir"), mod = A_model)
 plot(x = eff.df, object = A_model)
+
+#change to 10 x 10 
+Allpreds <- stack(A1preds, A2preds, A3preds)
+plot(Allpreds)
+
+aggregated.r <- raster::aggregate(Allpreds, fact = 5, fun = sum)  
+plot(aggregated.r)
+
+aggregated.r.A2 <- raster::aggregate(A2preds, fact = 10, fun = sum)  
+plot(aggregated.r.A2)
 
 
 d5 <- as.data.frame(Allpreds)
