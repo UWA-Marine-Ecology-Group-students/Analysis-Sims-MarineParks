@@ -1,6 +1,3 @@
-## Script to extract bathymetry covariates from raster files ####
-
-
 library(plyr)
 library(dplyr)
 library(stringr)
@@ -134,7 +131,6 @@ summary(cov_m)
 
 cov_m1 <-df
 
-
 cov_m         <- cov_m[ , -9]                                       
 cov_m$flowdir <- as.numeric(cov_m$flowdir)
 cov_m <- cov_m[duplicated(cov_m) == FALSE, ]                                    # collapse to one row per sample
@@ -166,37 +162,19 @@ sp_form <- ~1
 
 A_model <- species_mix(
   archetype_formula = sam_form,
-  #poly(slope, degree = 2, raw = TRUE) + poly(tpi, degree = 2, raw = TRUE) + poly(aspect, degree = 2, raw = TRUE) +
-  #poly(temp_mean, degree = 2, raw = TRUE) + poly(temp_trend, degree = 2, raw = TRUE)),
-  species_formula = sp_form, #stats::as.formula(~1),
+  species_formula = sp_form, 
   all_formula = NULL,
   data=allmat,
   nArchetypes = 3,
   family = "negative.binomial",
-  #offset = NULL,
-  #weights = NULL,
-  #bb_weights = NULL,
-  #size = NULL, # for presence absence - benthic point data
-  #power = NULL, # for tweedie : eg. biomass data
-  control = list(), # for tuning the model if needed
-  #inits = NULL, # if you have fitted the model previously: use the same values
-  #standardise = FALSE, # has been removed in new update it scales
-  #titbits = TRUE # could turn this off
+  control = list(),
 )
 
 
 ## Check model fit ----
-BIC(A_model) # this gives a value of BIC
+BIC(A_model) 
 AIC(A_model)
 print(A_model)
-A_model$coefs
-A_model$alpha
-A_model$beta
-A_model$lofl
-A_model$gamma
-A_model$delta
-A_model$theta
-
 
 # Look at the partial response
 par(mfrow=c(2,2))
@@ -223,18 +201,26 @@ length(which(is.na(d3$slope)))
 d3 <- na.omit(d3)
 str(d3)
 
+## skips code - this little bit of code will drop site which sit outside of model space.
+modrange <- apply(allmat[,c('slope', 'aspect', 'tpi', 'depth', 'flowdir')],2,range)
+newobs <- d3
+summary(newobs)
+newobs.range <- newobs[,-1:-2]
+idx <- sapply(1:ncol(newobs.range),function(x)ifelse(newobs.range[,x]>=modrange[1,x]&newobs.range[,x]<=modrange[2,x],1,NA))
+env.in.range.idx <- which(complete.cases(idx))
+newobs2 <- newobs[env.in.range.idx,]
+
 
 # predict ##
 ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  newdata=d3[,c(3:7)],
+  newdata=d3[,c(3:7)], #newobs2
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
 )
-
 
 Apreds <- ptest2
 head(Apreds)
@@ -298,9 +284,6 @@ for(i in 1:nrow(arches)){
   arches$p[i]    <- max(arches[i, 1:ncol(arch_prob)])                           # takes maximum probability value
 }
 head(arches)
-
-
-
 
 # Get archetype with maximum probability for each sp --
 arch2 <- arch_prob %>%
