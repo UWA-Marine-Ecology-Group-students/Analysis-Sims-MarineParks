@@ -196,6 +196,8 @@ BIC(A_model)
 AIC(A_model)
 print(A_model)
 
+#saveRDS(A_model, "A_Model1")
+
 # Look at the partial response
 par(mfrow=c(1,1))
 eff.df <- effectPlotData(focal.predictors = c("depth","slope", "detrend", "tpi"), mod = A_model)
@@ -236,7 +238,7 @@ ptest2 <- predict(
   object=A_model,
   #sp.boot,
   #nboot = 100,
-  newdata=d3[,c(3:6)], #d3
+  newdata=newobs2[,c(3:6)], #d3
   #alpha = 0.95,
   #mc.cores = 3,
   prediction.type = "archetype"
