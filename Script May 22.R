@@ -548,7 +548,7 @@ d3 <- na.omit(d3)
 str(d3)
 
 #save model 
-#saveRDS(A_model, "A_model1.rds")
+saveRDS(A_model, "A_model1.rds")
 #my_model <- readRDS("A_model1.rds")
 
 ## skips code - this little bit of code will drop site which sit outside of model space.
