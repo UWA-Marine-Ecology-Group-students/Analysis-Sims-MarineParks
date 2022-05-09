@@ -196,7 +196,6 @@ BIC(A_model)
 AIC(A_model)
 print(A_model)
 
-#saveRDS(A_model, "A_Model1")
 
 # Look at the partial response
 par(mfrow=c(1,1))
@@ -513,7 +512,7 @@ A_model <- species_mix(
   species_formula = sp_form, 
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 8,
+  nArchetypes = 4,
   family = "negative.binomial",
   control = list(),
 )
@@ -535,7 +534,7 @@ d <- stack(paste(r.dir, "Multibeam_derivatives.tif", sep='/'))
 n <- read.csv(paste(r.dir, "names.bathy.ders.csv", sep='/'))
 names(d) <- n[,2]
 
-d2 <- stack(d$depth, d$slope, d$flowdir, d$tpi, d$aspect) 
+d2 <- stack(d$depth, d$slope, d$detrend, d$tpi, d$aspect) 
 preds <-d2
 names(preds)
 plot(preds)
@@ -670,33 +669,4 @@ arch3 <- arch2 %>%
 str(arch3)
 summary(arch3)
 glimpse(arch3)
-
-
-# Plots ----
-
-plot(A_model)
-preds <- c("slope","depth", "aspect", "tpi", "flowdir")
-
-
-
-aggregated.r.A1 <- raster::aggregate(A1preds, fact = 10, fun = sum)  
-plot(aggregated.r.A1, ylab="Latitude", xlab="Longitude", main="A1 40m x 40m") 
-
-aggregated.r.A2 <- raster::aggregate(A2preds, fact = 10, fun = sum)  
-plot(aggregated.r.A2, ylab="Latitude", xlab="Longitude", main="A2 40m x 40m") 
-
-aggregated.r.A3 <- raster::aggregate(A3preds, fact = 10, fun = sum)  
-plot(aggregated.r.A3, ylab="Latitude", xlab="Longitude", main="A3 40m x 40m") 
-
-
-
-aggregated.r.A8 <- raster::aggregate(A8preds, fact = 5, fun = sum)  
-plot(aggregated.r.A8, ylab="Latitude", xlab="Longitude", main="A8 40m x 40m") 
-
-aggregated.r.A2 <- raster::aggregate(A2preds, fact = 10, fun = sum)  
-plot(aggregated.r.A2, ylab="Latitude", xlab="Longitude", main="A2 40m x 40m") 
-
-
-
-
 
