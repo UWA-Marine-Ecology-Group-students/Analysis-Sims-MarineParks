@@ -1,4 +1,5 @@
-
+# Use A_model1.rds if A_model not in local environment 
+# Final model 4 Archetypes - Depth, Slope, TIP and Detrended Bathy
 
 # Look at the partial response
 par(mfrow=c(1,1))
@@ -76,21 +77,24 @@ plot(A4preds)
 
 #Predict Plots 
 
+plot(A1preds, ylab="Latitude", xlab="Longitude", main="Archetype 1 (4m x 4m)" )
+plot(A2preds, ylab="Latitude", xlab="Longitude", main="Archetype 2 (4m x 4m)" )
+plot(A3preds, ylab="Latitude", xlab="Longitude", main="Archetype 3 (4m x 4m)" )
+plot(A4preds, ylab="Latitude", xlab="Longitude", main="Archetype 4 (4m x 4m)" )
 
-plot(A1preds, ylab="Latitude", xlab="Longitude", main="A1 - 4m x 4m" )
 
-aggregated.r.A1 <- raster::aggregate(A1preds, fact = 10, fun = sum)  
-plot(aggregated.r.A1, ylab="Latitude", xlab="Longitude", main="A1") 
+#increase area  (x by 2.5)
+aggregated.r.A1 <- raster::aggregate(A1preds, fact = 12.5, fun = sum)  
+plot(aggregated.r.A1, ylab="Latitude", xlab="Longitude", main="Archetype 1 (50m x 50m)") 
 
-plot(A2preds, ylab="Latitude", xlab="Longitude", main="A2 - 4m x 4m" )
+aggregated.r.A2 <- raster::aggregate(A2preds, fact = 12.5, fun = sum)  
+plot(aggregated.r.A2, ylab="Latitude", xlab="Longitude", main="Archetype 2 (50m x 50m)") 
 
-aggregated.r.A2 <- raster::aggregate(A2preds, fact = 10, fun = sum)  
-plot(aggregated.r.A2, ylab="Latitude", xlab="Longitude", main="A2") 
+aggregated.r.A3 <- raster::aggregate(A3preds, fact = 12.5 , fun = sum)  
+plot(aggregated.r.A3, ylab="Latitude", xlab="Longitude", main="Archetype 3 (50m x 50m)") 
 
-plot(A3preds, ylab="Latitude", xlab="Longitude", main="A3 - 4m x 4m" )
-
-aggregated.r.A3 <- raster::aggregate(A3preds, fact = 10 , fun = sum)  
-plot(aggregated.r.A3, ylab="Latitude", xlab="Longitude", main="A3") 
+aggregated.r.A4 <- raster::aggregate(A4preds, fact = 12.5 , fun = sum)  
+plot(aggregated.r.A4, ylab="Latitude", xlab="Longitude", main="Archetype 4 (50m x 50m)") 
 
 
 ##########################################################

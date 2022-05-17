@@ -511,7 +511,7 @@ A_model <- species_mix(
   species_formula = sp_form, 
   all_formula = NULL,
   data=allmat,
-  nArchetypes = 8,
+  nArchetypes = 4,
   family = "negative.binomial",
   control = list(),
 )
