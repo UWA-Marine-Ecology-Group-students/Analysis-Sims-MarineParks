@@ -95,23 +95,22 @@ cov_m[, 2:5] <- sapply(cov_m[, 2:5], as.numeric)
 head(cov_m)
 
 # join and setup for speciesmix
-allmat <- cbind(spw_m, cov_m)     
-
+allmat   <- cbind(spw_m, cov_m)     
 sam_form <- stats::as.formula(paste0('cbind(',paste(paste0('spp',1:31),
                                                     collapse = ','),
                                      ") ~ poly(depth, 2) +
                                      poly(slope, 2) +
                                      poly(tpi, 2) +
                                      poly(detrend, 2)"))
-
-
 sp_form <- ~1
+
+set.seed(42)
 
 A_model <- species_mix(
   archetype_formula = sam_form,
   species_formula = sp_form, 
   all_formula = NULL,
-  data=allmat,
+  data = allmat,
   nArchetypes = 4,
   family = "negative.binomial",
   control = list(),
@@ -120,10 +119,10 @@ A_model <- species_mix(
 ## Check model fit ----
 BIC(A_model) 
 AIC(A_model)
-print(A_model)
+# print(A_model)
 
 # Look at the partial responses
-par(mfrow = c(1, 1))
+par(mfrow = c(2, 2))
 eff.df <- effectPlotData(focal.predictors = c("depth",  "slope", 
                                               "tpi", "detrend"),
                          mod = A_model)
@@ -176,8 +175,8 @@ cov_preds_b <- cbind(newobs_b, p_modelb)
 cov_preds   <- rbind(cov_preds_a, cov_preds_b)
 head(cov_preds)
 
-# grid 
-coordinates(cov_preds) <- ~x+y
+# grid the predictions into rasters for each archetype
+coordinates(cov_preds) <- ~ x + y
 A1 <- cov_preds[, 5]
 A2 <- cov_preds[, 6]
 A3 <- cov_preds[, 7]
@@ -189,5 +188,6 @@ gridded(A3) <- TRUE
 gridded(A4) <- TRUE
 
 p_arch <- stack(raster(A1), raster(A2), raster(A3), raster(A4))
+rm(A1, A2, A3, A4)
 
 plot(p_arch)
