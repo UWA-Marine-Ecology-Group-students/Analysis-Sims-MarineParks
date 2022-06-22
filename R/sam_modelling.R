@@ -3,7 +3,7 @@
 # Data:    BRUVS
 # Task:    Clean Modelling script
 # author:  Kingsley Griffin, Hayley Sims
-# date:    May 2022
+# date:    May/June 2022
 ##
 
 library(raster)
