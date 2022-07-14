@@ -47,69 +47,98 @@ thetheme <- theme_minimal() +
   theme(axis.title = element_blank())                                           # theme elements
 plotlims <- coord_sf(xlim = c(114.7, 115), 
                      ylim = c(-34.16, -34.0))                                   # crop area
-amp_cols <- scale_colour_manual(values = c("National Park Zone" = "#7bbc63"))   # zone colours
-wamp_col <- scale_colour_manual(values = c("Sanctuary Zone (WA)" = "palegreen"))     # state colours
+# amp_cols <- scale_colour_manual(values = c("National Park Zone" = "#7bbc63"))   # zone colours
+# wamp_col <- scale_colour_manual(values = c("Sanctuary Zone (WA)" = "lightblue"))# state colours
 
 # this is slow because rasters are large and detailed
 p1 <- ggplot() +
   geom_raster(data = pred_df, aes(x, y, fill = Archetype1)) +
   scale_fill_viridis() +
+  new_scale_fill() +
   geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
-  geom_sf(data = amp_npz, aes(colour = ZoneName), alpha = 4/5, fill = NA) +
+  geom_sf(data = amp_npz, colour = "#7bbc63", alpha = 4/5, fill = NA) +
   amp_cols +
-  labs(colour = NULL) +
+  guides(colour = "none") +
   new_scale_colour() +
-  geom_sf(data = wamp, aes(colour = Zone), alpha = 4/5, fill = NA) +
+  geom_sf(data = wamp, colour = "lightblue", alpha = 4/5, fill = NA) +
   wamp_col +
-  labs(colour = NULL) +
-  guides(fill = guide_legend(order = 1)) +
+  guides(colour = "none") +
   plotlims +
   thetheme
 p1
 
-p2 <- ggplot() +
-  geom_raster(data = pred_df, aes(x, y, fill = Archetype2)) +
-  scale_fill_viridis() +
-  geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
-  geom_sf(data = amp_npz, aes(colour = ZoneName), alpha = 4/5, fill = NA) +
-  amp_cols +
-  new_scale_colour() +
-  geom_sf(data = wamp, aes(colour = Zone), alpha = 4/5, fill = NA) +
-  wamp_col +
-  plotlims +
-  thetheme +
-  labs(colour = NULL)
+# make the same panes for the other 3 archetypes
+ p2 <- ggplot() +
+   geom_raster(data = pred_df, aes(x, y, fill = Archetype2)) +
+   scale_fill_viridis() +
+   new_scale_fill() +
+   geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
+   geom_sf(data = amp_npz, colour = "#7bbc63", alpha = 4/5, fill = NA) +
+   amp_cols +
+   guides(colour = "none") +
+   new_scale_colour() +
+   geom_sf(data = wamp, colour = "lightblue", alpha = 4/5, fill = NA) +
+   wamp_col +
+   guides(colour = "none") +
+   plotlims +
+   thetheme
 
 p3 <- ggplot() +
   geom_raster(data = pred_df, aes(x, y, fill = Archetype3)) +
   scale_fill_viridis() +
+  new_scale_fill() +
   geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
-  geom_sf(data = amp_npz, aes(colour = ZoneName), alpha = 4/5, fill = NA) +
+  geom_sf(data = amp_npz, colour = "#7bbc63", alpha = 4/5, fill = NA) +
   amp_cols +
+  guides(colour = "none") +
   new_scale_colour() +
-  geom_sf(data = wamp, aes(colour = Zone), alpha = 4/5, fill = NA) +
+  geom_sf(data = wamp, colour = "lightblue", alpha = 4/5, fill = NA) +
   wamp_col +
+  guides(colour = "none") +
   plotlims +
-  thetheme +
-  labs(colour = NULL)
+  thetheme
 
 p4 <- ggplot() +
   geom_raster(data = pred_df, aes(x, y, fill = Archetype4)) +
   scale_fill_viridis() +
+  new_scale_fill() +
   geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
-  geom_sf(data = amp_npz, aes(colour = ZoneName), alpha = 4/5, fill = NA) +
+  geom_sf(data = amp_npz, colour = "#7bbc63", alpha = 4/5, fill = NA) +
   amp_cols +
+  guides(colour = "none") +
   new_scale_colour() +
-  geom_sf(data = wamp, aes(colour = Zone), alpha = 4/5, fill = NA) +
+  geom_sf(data = wamp, colour = "lightblue", alpha = 4/5, fill = NA) +
   wamp_col +
+  guides(colour = "none") +
   plotlims +
-  thetheme +
-  labs(colour = NULL)
+  thetheme
 
-# make combination plot - this will take ages.
+# make combination plot - this will take ages to run.
 (p1 + p2) / 
   (p3 + p4)
 
-# export - very slow!
+# export - also very slow!
 ggsave("figures/archetype_predictions.png", 
+       width = 10, height = 8, dpi = 180)
+
+# plot dominant archetype
+p5 <- ggplot() +
+  geom_raster(data = pred_df, aes(x, y, fill = as.factor(dominant))) +
+  scale_fill_viridis(discrete = TRUE) +
+  new_scale_fill() +
+  geom_sf(data = aus, fill = "seashell2", colour = "grey80", size = 0.2) +
+  geom_sf(data = amp_npz, colour = "#7bbc63", alpha = 4/5, fill = NA) +
+  amp_cols +
+  guides(colour = "none") +
+  new_scale_colour() +
+  geom_sf(data = wamp, colour = "lightblue", alpha = 4/5, fill = NA) +
+  wamp_col +
+  guides(colour = "none") +
+  plotlims +
+  thetheme
+p5
+
+# export - also very slow!
+ggsave("figures/dominantarchetype.png", 
        width = 10, height = 6, dpi = 300)
+

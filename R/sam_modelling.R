@@ -135,6 +135,9 @@ rm(A1, A2, A3, A4)
 
 plot(p_arch)
 
+p_arch$Dominant <- which.max(p_arch)
+plot(p_arch[[5]])
+
 writeRaster(p_arch, "output/predicted.tif", bylayer = TRUE, 
             overwrite = TRUE, suffix = 'names')
 
