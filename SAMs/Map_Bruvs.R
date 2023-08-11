@@ -2,6 +2,8 @@
 
 ### MAP of BRUV deployments of the South West Corner ----
 
+# last modified by Anita - Aug 2023
+
 ### Load libraries ----
 
 library(ggplot2)
@@ -45,7 +47,7 @@ rm(list=ls())
 
 ### Set directories ----
 w.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
-p.dir <- paste(w.dir, "Plots", sep = '/')
+p.dir <- paste(w.dir, "plots", sep = '/')
 dt.dir <- paste(w.dir, "Data/Tidy", sep='/')
 s.dir <- paste(w.dir, "shapefiles", sep='/')
 r.dir <- paste(w.dir, "rasters", sep='/')
@@ -60,6 +62,7 @@ plot(cmr)
 names(cmr)
 head(cmr)
 cmr$ZONENAME <- as.factor(cmr$ZONENAME)
+proj4string(cmr) # "+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs"
 crs1 <- proj4string(sw)
 levels(cmr$ZONENAME)
 # get poly for each zone --
@@ -87,7 +90,7 @@ NPZ1 <- crop(NPZ, ext1)
 SPZ1 <- crop(SPZ, ext1)
 
 # Read BRUV deployment coordinates ----
-df <- read.csv(paste(dt.dir, "deployed_BRUVS.csv", sep = '/'))%>%
+df <- read.csv(paste(dt.dir, "BRUVS_for_SAMs.csv", sep = '/'))%>%
   mutate_at(vars(sample, family, genus, species, dataset, unique.name, full.name, location, status, cluster, cluster.new, number, n, class), list(as.factor)) %>% # make these columns as factors
   # At some point filter for successful count
   glimpse()
@@ -103,9 +106,9 @@ df
 # remove some if needed
 df <- df[-c(5:7),]
 df
-dfs <- df
-coordinates(dfs) <- ~Lon+Lat
-plot(dfs)
+dfl <- df
+coordinates(dfl) <- ~Lon+Lat
+plot(dfl)
 
 ### raster data ----
 
@@ -120,6 +123,7 @@ bathy@z
 # https://geocompr.robinlovelace.net/adv-map.html
 
 # choose colours --
+library(tmaptools)
 
 br1 <- brocolors("crayons")["Tumbleweed"]
 pink <- brocolors("crayons")["Lavender"]
@@ -139,7 +143,7 @@ map <- tm_shape(cmr1, bbox = ext1)  + tm_borders(col ='white', lwd = 1.5) +
   #tm_fill(col ='ZONENAME', palette=c('yellow', 'red'), alpha = 0.1) +
   tm_scale_bar(breaks = c(0, 5, 10), text.size = 0.7, position = c(0.08, 0.02)) + 
   #tm_graticules(ticks = FALSE) +
-  tm_grid(n.x = 3, n.y = 3, labels.size = 1.5, lines = FALSE) 
+  tm_grid(n.x = 3, n.y = 3, labels.size = 1, lines = FALSE) 
 map
 
 map1 <- map + tm_shape(bathy) + 
@@ -157,12 +161,12 @@ map1
 map2 <- map1 + tm_shape(wa) + tm_borders(col ='black', lwd = 1) + tm_fill(col = br1) 
 map2
 
-map3 <- map2 + tm_shape(dfs) + tm_symbols(col = 'black', size = 0.2) +
+map3 <- map2 + tm_shape(dfl) + tm_symbols(col = 'black', size = 0.2) +
   tm_text("Location", size = 0.9, xmod = 1.4, ymod = -0.5)
 map3
 
 map4 <- map3 + tm_shape(SPZ1) + tm_borders(col = 'grey55', lwd = 1, lty = '33') +
-  tm_add_legend(type = 'fill', labels = "Special Purpose Zone", col= 'white', border.col = 'grey55', border.lwd = 2, border.lty = '33', size = 2)
+  tm_add_legend(type = 'fill', labels = "Special Purpose Zone", col= 'white', border.col = 'grey55', border.lwd = 2, size = 2)
 
 map4
 
@@ -171,40 +175,72 @@ map5 <- map4 + tm_shape(NPZ1) + tm_borders(col = "#006600", lwd = 2) +
 
 map5
 
+tmap_options(check.and.fix = TRUE)
 
-map3 <- map2 + tm_shape(wamp) + tm_borders(col ='black', lwd = 1) + tm_fill(col='pink', alpha = 0.4) +
+map6 <- map5 + tm_shape(wamp) + tm_borders(col ='black', lwd = 1) + tm_fill(col='pink', alpha = 0.4) +
   tm_add_legend(type = 'fill', col = 'pink', alpha = 0.4, labels = 'State Sanctuary Zones')
-map3
+map6
 
 
-map4 <- map3 + tm_shape(dfs) + tm_dots('optional', col = 'red', size = 0.2, shape = 21) +
+map7 <- map6 + tm_shape(dfs) + tm_dots('optional', col = 'red', size = 0.2, shape = 21) +
   tm_add_legend(type = "symbol", shape = 21, col = 'red', size = 0.7, labels = 'Stereo BRUVs')
-map4
+map7
 
 
+##
 
-tmap_save(
-  tm = map4,
-  filename = paste(p.dir, "Bruvs_survey_map.png", sep ='/'),
-  #width = NA,
-  #height = NA,
-  #units = NA,
-  dpi = 300)
+### INSET MAP ####
 
+#### Define extent of part of SWC ----
 
-
-
-
-
-
-
-### TESTING MULTIBEAM ----
-
-b.dir <- "C:/Users/00093391/Dropbox/Field (1)"
-
-b <- raster(paste(b.dir, "ga-4858_swc_ausseabed_cube_04m_EGM2008_epsg-32750_20210222.tiff", sep ='/'))
-plot(b)
 
 e <- drawExtent()
-b2 <- crop(b2, e)
-plot(b2)
+
+swc_region <- st_bbox(c(xmin = 114.0054, xmax = 115.9361,
+                       ymin = -34.81606, ymax = -33.19373),
+                     crs = st_crs(wa)) %>%
+  st_as_sfc()
+
+## Read map of Australia ----
+aus <- readOGR(paste(s.dir, "Australia_map.shp",sep='/'))
+plot(aus)
+
+#### 6.3. Australia inset map ----
+a_map <- tm_shape(aus) + tm_polygons(col = "black", border.col = "black") +
+  tm_shape(swc_region) + # for the red box showing part of Western Australia 
+  tm_borders(col = "red",lwd = 3) +
+  tm_layout(bg.color = "transparent", frame = F
+            #title = "Australia", title.size = 3,  title.color = "white", title.position = c(0.2,0.59),
+            )
+a_map
+
+
+# join maps ----
+
+map7
+
+vp1 = viewport(x = 0.23, y = 0.72, w = 0.15, h= 0.15)
+print(a_map, vp = vp1)
+
+map7
+
+vp2 = viewport(x = 0.23, y = 0.63, w = 0.15, h= 0.15)
+print(a_map, vp = vp2)
+
+map7
+
+vp3 = viewport(x = 0.31, y = 0.73, w = 0.15, h= 0.15)
+print(a_map, vp = vp3)
+
+
+## SAVE MAP With Aus inset ----
+
+tmap_save(map7, 
+          filename = paste(p.dir, "Bruvs_survey_map_vp3.png", sep ='/'),  
+          #height = 5.5, width = 5, units = "in",
+          dpi = 300,
+          insets_tm = list(a_map),  
+          insets_vp = list(vp3))
+
+
+
